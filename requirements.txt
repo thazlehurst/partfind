@@ -1,0 +1,13 @@
+conda install -c conda-forge pythonocc-core=7.4.1
+
+pip install opencv-python
+
+-- choose cuda version if required https://www.dgl.ai/pages/start.html   https://pytorch.org/get-started/locally/
+pip install dgl
+pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+pip install grakel
+pip install tqdm
+pip install matplotlib
+
+--put this last
+pip streamlit

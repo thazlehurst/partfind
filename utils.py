@@ -1,0 +1,50 @@
+import matplotlib.pyplot as plt
+import networkx as nx
+import dgl
+
+
+import grakel
+from grakel.utils import graph_from_networkx
+from grakel.kernels import GraphletSampling
+
+def compare_graphlets(g_list):
+    gl_kernel = GraphletSampling(normalize=True)
+    grakels = dgl_grakel(g_list)
+    grak_list = []
+    for i, gr in enumerate(grakels):
+      grak_list.append(gr)
+    # initialise kernel
+    gl_kernel.fit_transform([grak_list[0]])
+    matching = []
+    for grak in grak_list[1:]:
+      matching.append(gl_kernel.transform([grak]))
+    return matching
+
+def print_graph(g,filename="graph.png"):
+  #  save graph to image file,
+  plot_size = (5,5)
+  plt.figure(3,figsize=plot_size)
+  # if g.device == 'cuda':
+  g=g.cpu()
+  if g.is_homogeneous:
+    nx.draw(dgl.to_networkx(g))
+  else:
+    nx.draw(dgl.to_networkx(dgl.to_homogeneous(g)))
+  #plt.show()
+  plt.savefig(filename)
+  plt.close()
+  
+def dgl_grakel(g):
+    # convert dgl graph to grakel graph
+    nx_list = []
+    for graph in g:
+      # 1. dgl to networkx
+      nx_graph = dgl.to_networkx(graph)
+      # 2. networkx to grakel
+      for node in nx_graph.nodes():
+        nx_graph.nodes[node]['label'] = node
+      nx_list.append(nx_graph)
+        
+    krakel_graphs = graph_from_networkx(nx_list,as_Graph=True,node_labels_tag='label')
+    # print("grakel:",g)
+    return krakel_graphs
