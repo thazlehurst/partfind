@@ -125,7 +125,7 @@ dmypy.json
 .pyre/
 
 # Dataset folder, and tmp folder
-Dataset/
+Dataset/*
 !Dataset/ABCDataset.py
 !Dataset/ABCSiameseDataset.py
 tmp/
