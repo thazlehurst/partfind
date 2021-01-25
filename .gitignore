@@ -128,4 +128,4 @@ dmypy.json
 Dataset/*
 !Dataset/ABCDataset.py
 !Dataset/ABCSiameseDataset.py
-tmp/
+tmp/*

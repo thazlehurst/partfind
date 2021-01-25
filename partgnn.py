@@ -20,7 +20,7 @@ class PartGNN(torch.nn.Module):
         if self.verbose:
             print("Verbose enabled")
         
-        if os.name == 'nt:
+        if os.name == 'nt':
             self.model_folder = "C:\\Users\\prctha\\PythonDev\\ABC_Data"
         else:
             self.model_folder = "/nobackup/prctha/dgl/Dataset/gz"
@@ -52,7 +52,7 @@ class PartGNN(torch.nn.Module):
         self.step_dataset,
         raw_dir=raw_dir,
         verbose=self.verbose,
-        dataset_range=[0,5000],
+        #dataset_range=[0,5000],
         force_reload=True,
         continue_dataset=True)
         ## test

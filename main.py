@@ -86,7 +86,7 @@ def parameter_parser():
     # parser.set_defaults(histogram=False)
     
     parser.add_argument("--dataset-range",
-                        nargs='+'
+                        nargs='+',
                         type=int,
                         help="Set dataset compiling range.")
 
