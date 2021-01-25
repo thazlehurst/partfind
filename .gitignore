@@ -126,4 +126,6 @@ dmypy.json
 
 # Dataset folder, and tmp folder
 Dataset/
+!Dataset/ABCDataset.py
+!Dataset/ABCSiameseDataset.py
 tmp/
