@@ -22,7 +22,7 @@ def step2image(filename):
 	# pngfilename = os.path.join(tmp,stepfilename) + ".png"
 	
 
-def render_step(step_file):
+def render_step(step_file,remove_tmp=True):
 	# need to create temp file
 	# print("type",type(step_file.read()))
 	# tmp_file = os.path.join('./tmp/',step_file.name)
@@ -87,7 +87,8 @@ def render_step(step_file):
 	image = cv2.merge([r,g,b])
 	
 	# delete tmp files
-	os.remove(tmp_png)
+	if remove_tmp:
+		os.remove(tmp_png)
 	os.remove(tmp_file)
 	
 	return image

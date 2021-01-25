@@ -25,7 +25,7 @@ def parameter_parser():
     
     parser.add_argument("--dataset",
                         nargs="?",
-                        default="./dataset/",
+                        default="./dataset/abc_dataset",
                         help="Folder with training dataset.")
 
 

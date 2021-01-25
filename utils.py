@@ -15,9 +15,10 @@ def compare_graphlets(g_list):
       grak_list.append(gr)
     # initialise kernel
     gl_kernel.fit_transform([grak_list[0]])
-    matching = []
-    for grak in grak_list[1:]:
-      matching.append(gl_kernel.transform([grak]))
+    matching = gl_kernel.transform(grak_list)
+    # matching = []
+    # for grak in grak_list[1:]:
+      # matching.append(gl_kernel.transform([grak]))
     return matching
 
 def print_graph(g,filename="graph.png"):
