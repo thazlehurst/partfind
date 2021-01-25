@@ -20,7 +20,10 @@ class PartGNN(torch.nn.Module):
         if self.verbose:
             print("Verbose enabled")
         
-        self.model_folder = "C:\\Users\\prctha\\PythonDev\\ABC_Data"
+        if os.name == 'nt:
+            self.model_folder = "C:\\Users\\prctha\\PythonDev\\ABC_Data"
+        else:
+            self.model_folder = "/nobackup/prctha/dgl/Dataset/gz"
         self.step_dataset = []
         
         
@@ -38,7 +41,10 @@ class PartGNN(torch.nn.Module):
         # load dataset
         print("Initalising dataset...")
         raw_dir = self.args.dataset
-        
+        dataset_range = self.args.dataset_range
+        print("dataset_range",dataset_range)
+        if dataset_range==None:
+            dataset_range=[0,1000000]
         # to impliment load dataset from abc folder
         single_dataset = []
         model_folder = self.model_folder
@@ -46,7 +52,9 @@ class PartGNN(torch.nn.Module):
         self.step_dataset,
         raw_dir=raw_dir,
         verbose=self.verbose,
-        dataset_range=[0,50],force_reload=False)
+        dataset_range=[0,5000],
+        force_reload=True,
+        continue_dataset=True)
         ## test
         print("test point")
         for i in range(6,7):
@@ -55,17 +63,17 @@ class PartGNN(torch.nn.Module):
             #print("graphs", graphs)
             print("filename:",filenames)
             #model_folder = self.model_folder
-            for filename in filenames:
-                model_file = self.gz2step(os.path.join(model_folder,filename))
-                image1 = render_step(model_file,remove_tmp=False)
+#            for filename in filenames:
+#                model_file = self.gz2step(os.path.join(model_folder,filename))
+#                image1 = render_step(model_file,remove_tmp=False)
             print("targets",targets)
             g1,g2,g3 = dgl.unbatch(graphs)
             #print("g1",g1)
             #print("g2",g2)
             #print("g3",g3)
-            print_graph(g1,str(i)+"g1.png")
-            print_graph(g2,str(i)+"g2.png")
-            print_graph(g3,str(i)+"g3.png")
+            print_graph(g1,str(i)+"tmp/g1.png")
+            print_graph(g2,str(i)+"tmp/g2.png")
+            print_graph(g3,str(i)+"tmp/g3.png")
             values2, _ = compare_graphlets([g1,g2,g3])
             print("values2",values2)
 
