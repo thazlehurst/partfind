@@ -18,6 +18,7 @@ from Model.model import PartGNN as GNN
 from tqdm import tqdm
 import math
 import numpy as np
+from torch.utils.data.sampler import SubsetRandomSampler
 
 
 class PartGNN(torch.nn.Module):
@@ -46,8 +47,9 @@ class PartGNN(torch.nn.Module):
         self.dataset_loaded = False
         
         #self.create_dataset()
-        #self.load_dataset()
+        self.load_dataset()
         #self.setup_layers()
+        self.train()
         self.test()
     
     def create_dataset(self):
@@ -73,6 +75,26 @@ class PartGNN(torch.nn.Module):
         verbose=self.verbose,
         force_reload=False,
         continue_dataset=False)
+        
+        
+        
+        batch_size = self.args.batch_size
+        validation_split = .2
+        shuffle_dataset = True
+        random_seed= 42
+
+        # Creating data indices for training and validation splits:
+        dataset_size = len(self.dataset)
+        indices = list(range(dataset_size))
+        split = int(np.floor(validation_split * dataset_size))
+        if shuffle_dataset :
+            np.random.seed(random_seed)
+            np.random.shuffle(indices)
+        train_indices, val_indices = indices[split:], indices[:split]
+
+        # Creating PT data samplers and loaders:
+        self.train_sampler = SubsetRandomSampler(train_indices)
+        self.valid_sampler = SubsetRandomSampler(val_indices)
         
         self.dataset_loaded = True
         
@@ -112,7 +134,7 @@ class PartGNN(torch.nn.Module):
         num_epochs = self.args.epochs
         
         train_loader = torch.utils.data.DataLoader(self.dataset,
-                                                    batch_size=batch_size, collate_fn=self.__collate_single)
+                                                    batch_size=batch_size, collate_fn=self.__collate_single,sampler=self.train_sampler)
                                                     
         
         model = GNN(self.args)
@@ -214,7 +236,7 @@ class PartGNN(torch.nn.Module):
         num_epochs = self.args.epochs
         
         test_loader = torch.utils.data.DataLoader(self.dataset,
-                                                    batch_size=1, collate_fn=self.__collate_single)
+                                                    batch_size=1, collate_fn=self.__collate_single,sampler=self.valid_sampler)
         scores = []
         
         
@@ -228,7 +250,7 @@ class PartGNN(torch.nn.Module):
         model_path = newest(self.save_folder)
         print("loading model:",model_path)
         model = torch.load(model_path)
-        
+        model.eval()
         self.scores = []
         self.scores_match = []
         self.scores_unmatch = []
@@ -259,8 +281,8 @@ class PartGNN(torch.nn.Module):
             self.scores.append(loss_match)
             self.scores.append(loss_unmatch)
             
-            print("Predicted",prediction_match,"actual",gt_match)
-            print("Predicted",prediction_unmatch,"actual",gt_unmatch)
+            # print("Predicted",prediction_match,"actual",gt_match)
+            # print("Predicted",prediction_unmatch,"actual",gt_unmatch)
             
         self.print_evaluation()
     
