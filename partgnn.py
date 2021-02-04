@@ -6,7 +6,7 @@ import os
 from Dataset.ABCSiameseDataset import ABCSiameseDataset
 from Dataset.ABCDataset import ABCDataset
 from utils import print_graph, compare_graphlets
-from step2image_pyocc import render_step
+#from step2image_pyocc import render_step
 
 class PartGNN(torch.nn.Module):
 
@@ -28,13 +28,28 @@ class PartGNN(torch.nn.Module):
         
         
         self.create_dataset()
-        self.load_dataset()
+        #self.load_dataset()
         #self.setup_layers()
     
     def create_dataset(self):
+    #Function to create the dataset
+    
         print("Loading dataset from step files...")
         model_folder = self.model_folder
         self.step_dataset = ABCDataset(raw_dir='Dataset/')
+        print("Step files loaded")
+        print("Creating siamese dataset...")
+        
+        raw_dir = self.args.dataset
+        dataset_range = self.args.dataset_range
+        
+        self.dataset = ABCSiameseDataset(
+        self.step_dataset,
+        raw_dir=raw_dir,
+        verbose=self.verbose,
+        dataset_range=dataset_range,
+        force_reload=True,
+        continue_dataset=True)
         
     
     def load_dataset(self):

@@ -54,7 +54,10 @@ class ABCDataset(DGLDataset):
     # process raw data to graphs, labels, splitting masks
     if self.verbose:
       print('loading data...')
-    root = "C:\\Users\\prctha\\PythonDev\\ABC_Out" #self.raw_path
+    if os.name == 'nt':
+      root = "C:\\Users\\prctha\\PythonDev\\ABC_Out" #self.raw_path
+    else:
+      root = "/nobackup/prctha/dgl/Dataset/gz"
     i = 0
     for file in os.listdir(root):
       if file.endswith(".gz"):
