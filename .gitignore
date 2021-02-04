@@ -129,3 +129,4 @@ Dataset/*
 !Dataset/ABCDataset.py
 !Dataset/ABCSiameseDataset.py
 tmp/*
+trained_models/*
