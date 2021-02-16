@@ -13,12 +13,13 @@ import os
 from Dataset.ABCSiameseDataset import ABCSiameseDataset
 from Dataset.ABCDataset import ABCDataset
 from utils import print_graph, compare_graphlets
-from step2image_pyocc import render_step
+#from step2image_pyocc import render_step
 from Model.model import PartGNN as GNN
 from tqdm import tqdm
 import math
 import numpy as np
 from torch.utils.data.sampler import SubsetRandomSampler
+
 
 
 class PartGNN(torch.nn.Module):
@@ -45,7 +46,9 @@ class PartGNN(torch.nn.Module):
         if self.verbose:
             print("Using device:",self.device)
         self.dataset_loaded = False
-        
+
+        #self.create_dataset()
+        #self.load_dataset()
         #self.create_dataset()
         self.load_dataset()
         #self.setup_layers()
@@ -53,9 +56,24 @@ class PartGNN(torch.nn.Module):
         self.test()
     
     def create_dataset(self):
+    #Function to create the dataset
+    
         print("Loading dataset from step files...")
         model_folder = self.model_folder
         self.step_dataset = ABCDataset(raw_dir='Dataset/')
+        print("Step files loaded")
+        print("Creating siamese dataset...")
+        
+        raw_dir = self.args.dataset
+        dataset_range = self.args.dataset_range
+        
+        self.dataset = ABCSiameseDataset(
+        self.step_dataset,
+        raw_dir=raw_dir,
+        verbose=self.verbose,
+        dataset_range=dataset_range,
+        force_reload=True,
+        continue_dataset=True)
         
     
     def load_dataset(self):
@@ -138,7 +156,7 @@ class PartGNN(torch.nn.Module):
                                                     
         
         model = GNN(self.args)
-        
+        model.to(self.device)
         
         self.optimizer = torch.optim.Adam(model.parameters(),
                                           lr=self.args.learning_rate,
@@ -152,12 +170,25 @@ class PartGNN(torch.nn.Module):
             self.loss_sum = 0
             main_index = 0
             
+            skipped = 0
             
             for batch_idx, (data, targets, file_names) in enumerate(tqdm(train_loader)):
                 #print("batch_idx",batch_idx)
                 # print("data",data)
-                # print("targets",targets)
+                # 
+                #if batch_idx == 1:
+                    #print("targets",targets)
                 # print("file_names",file_names)
+                
+                if targets[0] != targets[0]:
+                    #print("targets[0]",targets[0])
+                    skipped += 1
+                    continue
+                elif targets[1] != targets[1]:
+                    #print("targets[1]",targets[1])
+                    skipped += 1
+                    continue
+                
                 self.optimizer.zero_grad()
                 
                 # unbatch
@@ -168,7 +199,10 @@ class PartGNN(torch.nn.Module):
                 batch_1 = dgl.batch(gb[1::3]).to(self.device)
                 batch_2 = dgl.batch(gb[2::3]).to(self.device)
                 
-                # missing step transfer to torch
+                targets = targets.to(self.device)
+                
+                
+                
                 
                 # print("batch_0.batch_size",batch_0.batch_size)
                 score_match = model(batch_0,batch_1) # sample, match, not match
@@ -196,6 +230,22 @@ class PartGNN(torch.nn.Module):
                 loss_unmatch = torch.nn.functional.mse_loss(targets_unmatch,score_unmatch)
                 losses = loss_match + loss_unmatch
                 
+#                if loss_match != loss_match:
+#                    print('batch_0',batch_0)
+#                    print('batch_1',batch_1)
+#                    print('batch_2',batch_2)
+#                    print('targets',targets)
+#                    print('targets_match',targets_match)
+#                    print('loss_match',loss_match)
+#                if loss_unmatch != loss_unmatch:
+#                    print('batch_0',batch_0)
+#                    print('batch_1',batch_1)
+#                    print('batch_2',batch_2)
+#                    print('targets',targets)
+#                    print('targets_match',targets_unmatch)
+#                    print('loss_unmatch',loss_unmatch)
+                
+                
                 losses.backward() # retain_graph=True
                 self.optimizer.step()
                 loss_score = losses.item()
@@ -203,10 +253,12 @@ class PartGNN(torch.nn.Module):
                 self.loss_sum = self.loss_sum + loss_score * batch_size
                 main_index = main_index + batch_size
                 loss = self.loss_sum/main_index
-                
+            
+            print("Skipped:",skipped)    
             print("Epoch",epoch+1,"loss =",loss)
-            if epoch & self.save_frequency == 0:
+            if True:#epoch & self.save_frequency == 0:
                 torch.save(model, os.path.join(self.save_folder,'partfind_{:03}.pt').format(epoch))
+            self.test()
                 
     def __collate_single(self,batch):
         assert len(batch) == 1, 'Currently we do not support batched training'
@@ -255,8 +307,22 @@ class PartGNN(torch.nn.Module):
         self.scores_match = []
         self.scores_unmatch = []
         self.ground_truth = []
+        skipped = 0
+        match_correct = 0
+        unmatch_correct = 0
+        compare_correct = 0
+        total = 0
         for batch_idx, (data, targets, file_names) in enumerate(tqdm(test_loader)):
             #batch should be 1 for this
+            if targets[0] != targets[0]:
+                #print("targets[0]",targets[0])
+                skipped += 1
+                continue
+            elif targets[1] != targets[1]:
+                #print("targets[1]",targets[1])
+                skipped += 1
+                continue
+            
             gb = dgl.unbatch(data)
                 # print("gb[0::3]",gb[0::3])
                 # group into three batches
@@ -278,12 +344,44 @@ class PartGNN(torch.nn.Module):
             loss_match = self.calculate_loss(prediction_match,targets[0])
             loss_unmatch = self.calculate_loss(prediction_unmatch,targets[1])
             
+            match_match = self.is_match(prediction_match,targets[0])
+            match_unmatch = self.is_match(prediction_unmatch,targets[1])
+            if match_match:
+                match_correct += 1
+            if match_unmatch:
+                unmatch_correct += 1
+                
+            if prediction_match > prediction_unmatch:
+                compare_correct += 1 
+            
             self.scores.append(loss_match)
             self.scores.append(loss_unmatch)
             
             # print("Predicted",prediction_match,"actual",gt_match)
             # print("Predicted",prediction_unmatch,"actual",gt_unmatch)
+            total += 2
             
+        
+        #print("skipped:",skipped)
+        
+        total_correct = match_correct+unmatch_correct
+        
+        correct_percent = ( total_correct/(total))
+        match_percent = (match_correct/(total/2))
+        unmatch_percent = (unmatch_correct/(total/2))
+        
+        percentage = "{:.0%}".format(correct_percent)
+        match_percentage = "{:.0%}".format(match_percent)
+        unmatch_percentage = "{:.0%}".format(unmatch_percent)
+        
+        print("Correct:",percentage)
+        print("Match percent",match_percentage)
+        print("Unmatch percent",unmatch_percentage)
+        
+        compare_percent = (compare_correct/(total/2))
+        compare_percentage = "{:.0%}".format(compare_percent)
+        print("Compare percent",compare_percentage) 
+        
         self.print_evaluation()
     
     def calculate_loss(self,prediction, target):
@@ -293,7 +391,11 @@ class PartGNN(torch.nn.Module):
         :param target: Factual log transofmed GED.
         :return score: Squared error.
         """
-        prediction = -math.log(prediction)
+        try:
+            prediction = -math.log(prediction)
+        except:
+            #print("prediction error:",prediction)
+            prediction = -math.log(0.01)
         try:
             target = -math.log(target)
         except:
@@ -311,3 +413,10 @@ class PartGNN(torch.nn.Module):
         model_error = np.mean(self.scores)
         print("\nBaseline error: " +str(round(base_error, 5))+".")
         print("\nModel test error: " +str(round(model_error, 5))+".")
+        
+    def is_match(self,prediction,target):
+        dist = torch.dist(prediction,target)
+        if dist < 0.1:
+            return True
+        else:
+            return False
