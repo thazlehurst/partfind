@@ -284,7 +284,7 @@ class ABCSiameseDataset(DGLDataset):
       graph_export.append(g2)
     save_graphs(str(graph_path),graph_export,{})
     save_info(str(info_path),info_dict)
-    print("dataset saved!")
+    print("Dataset saved to ",self.save_path)
 
   def load(self):
     print("loading...")

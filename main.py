@@ -25,13 +25,13 @@ def parameter_parser():
     
     parser.add_argument("--dataset",
                         nargs="?",
-                        default="./dataset/abc_dataset",
+                        default="./Dataset/abc_dataset",
                         help="Folder with training dataset.")
 
 
     parser.add_argument("--epochs",
                         type=int,
-                        default=5,
+                        default=10,
                         help="Number of training epochs. Default is 5.")
 
     parser.add_argument("--GNN-1",
