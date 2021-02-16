@@ -23,6 +23,10 @@ nvidia-smi
 source /nobackup/prctha/miniconda3/bin/activate
 conda activate bomgan
 
+<<<<<<< HEAD
 python -u main.py --dataset-range 35001 40000 > output.txt
+=======
+python -u main.py --epochs 50 --dataset-range 35001 40000 > output_train.txt
+>>>>>>> temp2
 
 #-l 0 5000

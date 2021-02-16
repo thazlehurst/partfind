@@ -31,7 +31,7 @@ def parameter_parser():
 
     parser.add_argument("--epochs",
                         type=int,
-                        default=5,
+                        default=10,
                         help="Number of training epochs. Default is 5.")
 
     parser.add_argument("--GNN-1",
@@ -54,14 +54,14 @@ def parameter_parser():
                         default=16,
                         help="Neurons in tensor network layer. Default is 16.") ########
 
-    # parser.add_argument("--bottle-neck-neurons",
-                        # type=int,
-                        # default=16,
-	                # help="Bottle neck layer neurons. Default is 16.")
+    parser.add_argument("--bottle-neck-neurons",
+                        type=int,
+                        default=16,
+	                help="Bottle neck layer neurons. Default is 16.")
 
     parser.add_argument("--batch-size",
                         type=int,
-                        default=128,
+                        default=1,
                         help="Number of graph pairs per batch. Default is 128.")
 
     parser.add_argument("--dropout",
