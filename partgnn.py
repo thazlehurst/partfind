@@ -14,8 +14,7 @@ from Dataset.ABCSiameseDataset import ABCSiameseDataset
 from Dataset.ABCDataset import ABCDataset
 from utils import print_graph, compare_graphlets
 #from step2image_pyocc import render_step
-<<<<<<< HEAD
-=======
+
 from Model.model import PartGNN as GNN
 from tqdm import tqdm
 import math
@@ -23,7 +22,10 @@ import numpy as np
 from torch.utils.data.sampler import SubsetRandomSampler
 
 
->>>>>>> temp2
+import grakel
+from grakel.utils import graph_from_networkx
+from grakel.kernels import GraphletSampling
+import networkx as nx
 
 class PartGNN(torch.nn.Module):
 
@@ -45,11 +47,9 @@ class PartGNN(torch.nn.Module):
             self.model_folder = "/nobackup/prctha/dgl/Dataset/gz"
         self.step_dataset = []
         
-<<<<<<< HEAD
+
         
-        self.create_dataset()
-        #self.load_dataset()
-=======
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         if self.verbose:
             print("Using device:",self.device)
@@ -57,12 +57,13 @@ class PartGNN(torch.nn.Module):
 
         #self.create_dataset()
         #self.load_dataset()
-        #self.create_dataset()
-        self.load_dataset()
->>>>>>> temp2
         #self.setup_layers()
-        self.train()
-        self.test()
+        #self.train()
+        #self.test()
+        #self.create_lib()
+        #self.load_model_find()
+        #self.find_parts([],n=3)
+        
     
     def create_dataset(self):
     #Function to create the dataset
@@ -429,3 +430,126 @@ class PartGNN(torch.nn.Module):
             return True
         else:
             return False
+            
+    def test_pair(self,g0,g1):
+        # input two graphs, output = score
+        with torch.no_grad():
+            score = self.model_find(g0,g1)
+        return score.numpy()[0][0]
+            
+    def create_lib(self):
+        print("Create vector library....")
+        
+        graphs_dataset = ABCDataset(raw_dir='Dataset/')
+        print("graphs_dataset",graphs_dataset)
+        model = GNN(self.args)
+        
+        #chooses most recent file if none specified # needs implimenting
+        def newest(path):
+            files = os.listdir(path)
+            paths = [os.path.join(path, basename) for basename in files]
+            return max(paths, key=os.path.getctime)
+            
+        model_path = newest(self.save_folder)
+        print("loading model:",model_path)
+        model = torch.load(model_path)
+        model.eval()
+        
+        for i, (graph, filename) in enumerate(graphs_dataset):
+            f1, f2 =model(graph,graph,mode='vector')
+            print("f1",i)
+    
+    def load_model(self,load_dataset=False) :
+        self.model_find = GNN(self.args).to(self.device)
+        
+        #chooses most recent file if none specified # needs implimenting
+        def newest(path):
+            files = os.listdir(path)
+            paths = [os.path.join(path, basename) for basename in files]
+            return max(paths, key=os.path.getctime)
+            
+        model_path = newest(self.save_folder)
+        print("loading model:",model_path)
+        self.model_find = torch.load(model_path,map_location=self.device)
+        self.model_find.eval()
+        
+        if load_dataset:
+            print("loading dataset...")
+            self.graphs_dataset = ABCDataset(raw_dir='Dataset/')
+        
+    def find_in_data(self,filename_tofind):
+        print("finding...",filename_tofind)
+        for i, (graph, filename) in enumerate(tqdm(self.graphs_dataset)):
+            # if i == 1:
+                # print("test",filename)
+            if filename_tofind == filename:
+                print("found!")
+                return graph
+                
+                
+    def find_parts(self,test_g, filename_g,n=3,test=False):
+        #test_g is model to compare with
+        if test_g == []:
+            test_g, filename_g = self.graphs_dataset[11]
+        scores = []
+        files = []
+        g_list = [test_g]
+        with torch.no_grad():
+            print("searching...")
+            for i, (graph, filename) in enumerate(tqdm(self.graphs_dataset)):
+                if filename_g != filename:
+                    score = self.model_find(test_g,graph)
+                    #print("score",score.numpy()[0][0])
+                    sc_np = score.numpy()[0][0]
+                    scores.append(sc_np)
+                    files.append(filename)
+                    g_list.append(graph)
+                # if sc_np>0.6:
+                    # print(sc_np,filename)
+                if i > 500:
+                    break
+                
+        # find top n
+        #print("scores",scores)
+        sorted = np.flip(np.argsort(scores))
+        #print("sorted",sorted)
+        #print("filename_g",filename_g)
+        file_list = []
+        score_list = []
+        for i in range(0,n):
+            file_list.append(files[sorted[i]])
+            score_list.append(scores[sorted[i]])
+            
+        g_score = []
+        if test==True:
+            print("calculating graphlets...")
+            gl_kernel = GraphletSampling(normalize=True)
+            grakels = self.dgl_grakel(g_list)
+            grak_list = []
+            for i, gr in enumerate(grakels):
+                grak_list.append(gr)
+            gl_kernel.fit_transform([grak_list[0]])
+            g_score = []
+            for grak in grak_list[0:]:
+                fit, _ = gl_kernel.transform([grak])
+                g_score.append(fit)
+        
+        # print("filename top",files[sorted[0]],scores[sorted[0]])
+        # print("filename 2nd",files[sorted[1]],scores[sorted[1]])
+        # print("filename 3rd",files[sorted[2]],scores[sorted[2]])
+        return file_list, score_list, g_score
+
+    def dgl_grakel(self,g):
+        # convert dgl graph to grakel graph
+        nx_list = []
+        for graph in g:
+          # 1. dgl to networkx
+          nx_graph = dgl.to_networkx(graph)
+          # 2. networkx to grakel
+          for node in nx_graph.nodes():
+            nx_graph.nodes[node]['label'] = node
+          nx_list.append(nx_graph)
+            
+        krakel_graphs = graph_from_networkx(nx_list,as_Graph=True,node_labels_tag='label')
+        # print("grakel:",g)
+        return krakel_graphs

@@ -51,25 +51,28 @@ class PartGNN(nn.Module):
         #print("h.shape",h.shape)
         return h # [batch_size, n, 32]
     
-    def forward(self,G0,G1):
+    def forward(self,G0,G1,mode='training'):
         """G0 is test graph
         G1 is matching
         G2 is not matching
         """
+        if mode in ['training','vector']:
+            features_G0 = self.conv_pass(G0)
+            features_G1 = self.conv_pass(G1)
+            #features_G2 = self.conv_pass(G2)
+            
+            # think th eproblem is here, maybe return g from conv_pass to properly process in attention
+            
+            pooled_features_G0 = self.attention(features_G0)
+            pooled_features_G1 = self.attention(features_G1)
+            #pooled_features_G2 = self.attention(features_G2)
+        if mode == 'vector':
+            return pooled_features_G0, pooled_features_G1
         
-        features_G0 = self.conv_pass(G0)
-        features_G1 = self.conv_pass(G1)
-        #features_G2 = self.conv_pass(G2)
-        
-        # think th eproblem is here, maybe return g from conv_pass to properly process in attention
-        
-        pooled_features_G0 = self.attention(features_G0)
-        pooled_features_G1 = self.attention(features_G1)
-        #pooled_features_G2 = self.attention(features_G2)
-        
-        # print("pooled_features_G0",pooled_features_G0.shape)
-        # print("pooled_features_G1",pooled_features_G1.shape)
-        
+        if mode == ['score_only']:
+            pooled_features_G0 = G0
+            pooled_features_G1 = G1
+            
         scores_1 = self.tensor_network(pooled_features_G0, pooled_features_G1)
         #scores_2 = self.tensor_network(pooled_features_G0, pooled_features_G2)
         scores_1 = torch.t(scores_1)
