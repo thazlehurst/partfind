@@ -6,59 +6,29 @@ Created on Wed Jan  6 16:41:06 2021
 """
 
 # HR 04/03/21
-# To plot rendered images of parts alongside similarity scores """
+# To plot rendered images of parts alongside similarity scores
 
 # streamlit test
 
-
-##import sys
-##sys.path.append('C:\\Users\\prctha\\AppData\\Local\\Continuum\\anaconda3\\envs\\fc\\Library\\bin')
-
-##import FreeCAD
-
 import streamlit as st
 
-import numpy as np
 import pandas as pd
-import os, random
-#import StringIO
+import os
 import cv2
-import networkx as nx
+# import networkx as nx
 import dgl
-import pickle
+# import pickle
 from step_to_graph import load_step
-from OCC.Display.OCCViewer import Viewer3d
+# import OCC
+# from OCC.Display.OCCViewer import Viewer3d
 
-
-# model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__parts" #change this folder to where your step files are saved
-model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__cakebox_parts" #change this folder to where your step files are saved
-image_folder = model_folder
-cwd = os.getcwd()
-save_folder = os.path.join(cwd,"save_data")
-
-try:
-	import OCC
-	#st.write("OCC loaded")
-except:
-	st.write("OCC not loaded")
 from step2image_pyocc import render_step, render_step_simple
 
 from partgnn import PartGNN
 from main import parameter_parser
+# import sys
 
 
-args = parameter_parser()
-model = PartGNN(args)
-model.load_model()
-
-#from step2image import makeSnapshotWithoutGui
-
-def load_gz(filepath):
-    g_load = nx.read_gpickle(filepath)
-    g_load = networkx_to_dgl(g_load)
-    face_g = g_load.node_type_subgraph(['face'])
-    g_out = dgl.to_homogeneous(face_g)
-    return g_out
 
 def load_from_step(filepath):
     print("loading:",filepath)
@@ -67,6 +37,8 @@ def load_from_step(filepath):
     face_g = g_load.node_type_subgraph(['face'])
     g_out = dgl.to_homogeneous(face_g)
     return g_out
+
+
 
 def networkx_to_dgl(A_nx):
     # need to convert it into something dgl can work with
@@ -152,19 +124,23 @@ def networkx_to_dgl(A_nx):
     return A_dgl
 
 
-# st.set_page_config(layout="wide")
+
+args = parameter_parser()
+model = PartGNN(args)
+model.load_model()
+
+# model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__parts"
+model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__cakebox_parts"
+image_folder = model_folder
+cwd = os.getcwd()
+save_folder = os.path.join(cwd,"save_data")
+
+
 st.title('Part finder')
-
-import sys
-
-
 st.write("Upload part to find similar:")
-
 uploaded_file = st.file_uploader("Choose a file")
 
-
 if uploaded_file is not None:
-  # find image
 
   csv_loc = os.path.join(save_folder,uploaded_file.name) +".csv"
 
@@ -187,25 +163,14 @@ if uploaded_file is not None:
 
 
   st.write("Finding similar models:")
-
-  # # at the moment pick 3 files in folder at random
   with st.spinner(text="Finding results..."):
-
-    def gz_to_step(file):
-        file = os.path.splitext(file)[0]
-        file = file + ".step"
-        file = os.path.join(model_folder,file)
-        return file
-    i = 0
 
     main_graph = load_from_step(uploaded_file)
 
     file_list = []
     score_list = []
     for filename in os.listdir(model_folder):
-        # i += 1
-        # if i > 10:
-            # break
+
         if filename.endswith(".step") or filename.endswith(".stp") or filename.endswith(".STP") or filename.endswith(".STEP"):
 
             try:
@@ -215,7 +180,6 @@ if uploaded_file is not None:
                 score = model.test_pair(main_graph,check_graph)
             file_list.append(filename)
             score_list.append(score)
-
 
         else:
             continue
@@ -257,17 +221,6 @@ if uploaded_file is not None:
         c[1].write(os.path.splitext(filename)[0])
         c[2].write(score)
 
-    # df = pd.DataFrame(
-    #     score_list, index=file_list, columns=['score'])
-    # df.index.name='file'
-
-    # df.sort_values(by=['score'], inplace=True, ascending=False)
-
-    # print("df:",df)
-
-    # df.to_csv(csv_loc)
-
-    # st.dataframe(df)  # Same as st.write(df)
 
     st.balloons()
 

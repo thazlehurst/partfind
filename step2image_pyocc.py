@@ -105,7 +105,7 @@ def render_step_simple(step_file, offscreen_renderer = None, size = 600):
 
     shp = read_step_file(step_file)
     offscreen_renderer.EraseAll()
-    
+
     offscreen_renderer.DisplayShape(shp, update=True) #color="orange"
 
     offscreen_renderer.set_bg_gradient_color([255,255,255],[255,255,255])
