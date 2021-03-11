@@ -26,7 +26,11 @@ import pickle
 from step_to_graph import load_step
 
 
+
 model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__parts" #change this folder to where your step files are saved
+
+##model_folder = "C:\\Users\\prctha\\PythonDev\\ABC_Data" #change this folder to where your step files are saved
+
 cwd = os.getcwd()
 save_folder = os.path.join(cwd,"save_data")
 

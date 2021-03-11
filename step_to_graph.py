@@ -12,6 +12,7 @@ import numpy as np
 from itertools import count
 import pydot
 from networkx.drawing.nx_pydot import graphviz_layout
+import shutil
 
 
 import matplotlib.image as mpimg
