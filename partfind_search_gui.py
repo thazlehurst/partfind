@@ -24,12 +24,12 @@ import networkx as nx
 import dgl
 import pickle
 from step_to_graph import load_step
+from utils import graphlet_compare
 
 
-
-model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__parts" #change this folder to where your step files are saved
-
-##model_folder = "C:\\Users\\prctha\\PythonDev\\ABC_Data" #change this folder to where your step files are saved
+#model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__parts" #change this folder to where your step files are saved
+model_folder = "C:\\Users\\prctha\\PythonDev\\McMaster"
+#model_folder = "C:\\Users\\prctha\\PythonDev\\ABC_Data" #change this folder to where your step files are saved
 
 cwd = os.getcwd()
 save_folder = os.path.join(cwd,"save_data")
@@ -212,6 +212,7 @@ if uploaded_file is not None:
             except:
                 check_graph = load_from_step(os.path.join(model_folder, filename))
                 score = model.test_pair(main_graph,check_graph)
+                #graphlet_pair_compare(main_graph,check_graph)
             file_list.append(filename)
             score_list.append(score)
         else:
