@@ -5,59 +5,31 @@ Created on Wed Jan  6 16:41:06 2021
 @author: prctha
 """
 
+# HR 04/03/21
+# To plot rendered images of parts alongside similarity scores
+
 # streamlit test
-
-
-##import sys
-##sys.path.append('C:\\Users\\prctha\\AppData\\Local\\Continuum\\anaconda3\\envs\\fc\\Library\\bin')
-
-##import FreeCAD
 
 import streamlit as st
 
-import numpy as np
 import pandas as pd
-import os, random
-#import StringIO
+import os
 import cv2
-import networkx as nx
+# import networkx as nx
 import dgl
-import pickle
+# import pickle
 from step_to_graph import load_step
+# import OCC
+# from OCC.Display.OCCViewer import Viewer3d
 
-
-
-model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__parts" #change this folder to where your step files are saved
-
-##model_folder = "C:\\Users\\prctha\\PythonDev\\ABC_Data" #change this folder to where your step files are saved
-
-cwd = os.getcwd()
-save_folder = os.path.join(cwd,"save_data")
-
-try:
-	import OCC
-	#st.write("OCC loaded")
-except:
-	st.write("OCC not loaded")
-from step2image_pyocc import render_step
+from step2image_pyocc import render_step, render_step_simple
 
 from partgnn import PartGNN
 from main import parameter_parser
+# import sys
 
 
-args = parameter_parser()
-model = PartGNN(args)
-model.load_model()
 
-#from step2image import makeSnapshotWithoutGui
-
-def load_gz(filepath):
-    g_load = nx.read_gpickle(filepath)
-    g_load = networkx_to_dgl(g_load)
-    face_g = g_load.node_type_subgraph(['face'])
-    g_out = dgl.to_homogeneous(face_g)
-    return g_out
-    
 def load_from_step(filepath):
     print("loading:",filepath)
     s_load = load_step(filepath)
@@ -65,7 +37,9 @@ def load_from_step(filepath):
     face_g = g_load.node_type_subgraph(['face'])
     g_out = dgl.to_homogeneous(face_g)
     return g_out
-    
+
+
+
 def networkx_to_dgl(A_nx):
     # need to convert it into something dgl can work with
     node_dict = {} # to convert from A_nx nodes to dgl nodes
@@ -81,7 +55,7 @@ def networkx_to_dgl(A_nx):
     assembly1_dst = []
     assembly2_str = []
     assembly2_dst = []
-    
+
     #print("edges",A_nx.edges(data=True,keys=True))
 
     for node_str, node_dst, key, data in A_nx.edges(data=True,keys=True):
@@ -98,7 +72,7 @@ def networkx_to_dgl(A_nx):
         elif tn_str == "face":
           node_dict[node_str] = face_count
           face_count += 1
-      
+
       tn_dst = A_nx.nodes[node_dst]['type']
       if node_dst not in node_dict:
         if tn_dst == 'part':
@@ -142,7 +116,7 @@ def networkx_to_dgl(A_nx):
       ('face','link','part') : ( link_str, link_dst ), # part -> face
       ('assembly','assembly','part') : ( assembly2_str, assembly2_dst ), # these may be swapped around at some point
       ('assembly','assembly','assembly') : ( assembly1_str, assembly1_dst ),
-      ('assembly','layer','part') : ([],[]), 
+      ('assembly','layer','part') : ([],[]),
       ('part','layer','part') : ([],[]),
       ('assembly','layer','assembly') : ([],[]),
       ('part','layer','assembly') : ([],[])
@@ -151,62 +125,54 @@ def networkx_to_dgl(A_nx):
 
 
 
+args = parameter_parser()
+model = PartGNN(args)
+model.load_model()
+
+# model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__parts"
+model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__cakebox_parts"
+image_folder = model_folder
+cwd = os.getcwd()
+save_folder = os.path.join(cwd,"save_data")
+
 
 st.title('Part finder')
-
-import sys
-
-
 st.write("Upload part to find similar:")
-
 uploaded_file = st.file_uploader("Choose a file")
 
-
 if uploaded_file is not None:
-  # find image
-  
+
   csv_loc = os.path.join(save_folder,uploaded_file.name) +".csv"
-  
+
   load_csv=False
   try:
     prev_scores = pd.read_csv(csv_loc).set_index('file')
     scores_dict = prev_scores.to_dict('index')
-    print("scores_dict:",scores_dict)
+    # print("scores_dict:",scores_dict)
     load_csv=True
     print("loading from saved results")
   except:
     pass
-  
+
   st.spinner()
-  
+
   with st.spinner(text="Rendering file..."):
-    image0 = render_step(uploaded_file)
+    image0 = render_step(uploaded_file, remove_tmp = False)
     st.image(image0,caption="Input model",width=400)
-  
-  
-  
+
+
+
   st.write("Finding similar models:")
-  
-  # # at the moment pick 3 files in folder at random
   with st.spinner(text="Finding results..."):
-    
-    def gz_to_step(file):
-        file = os.path.splitext(file)[0]
-        file = file + ".step"
-        file = os.path.join(model_folder,file)
-        return file
-    i = 0
-    
+
     main_graph = load_from_step(uploaded_file)
-    
+
     file_list = []
     score_list = []
     for filename in os.listdir(model_folder):
-        # i += 1
-        # if i > 10:
-            # break
+
         if filename.endswith(".step") or filename.endswith(".stp") or filename.endswith(".STP") or filename.endswith(".STEP"):
-            
+
             try:
                 score = scores_dict[filename]['score']
             except:
@@ -214,22 +180,48 @@ if uploaded_file is not None:
                 score = model.test_pair(main_graph,check_graph)
             file_list.append(filename)
             score_list.append(score)
+
         else:
             continue
-    
-    df = pd.DataFrame(
-    score_list, index=file_list, columns=['score'])
-    df.index.name='file'
-    
-    df.sort_values(by=['score'], inplace=True, ascending=False)
-    
-    print("df:",df)
-    
-    df.to_csv(csv_loc)
-    
-    st.dataframe(df)  # Same as st.write(df)
-    
-    st.balloons()
-    
 
-  
+    # # Open renderer to avoid new renderer being opened for each part image
+    # renderer = Viewer3d()
+    # renderer.Create()
+    # renderer.SetSize(600,600)
+    # renderer.SetModeShaded()
+
+    file_dict = dict(sorted(zip(score_list, file_list), reverse = True))
+
+    c_head = st.beta_columns(3)
+    c_head[0].write('Shape image')
+    c_head[1].write('Shape name')
+    c_head[2].write('Similarity score')
+
+    for k,v in file_dict.items():
+        
+        filename = v
+        score = k
+        
+        # Get/create image
+        im_name = os.path.splitext(filename)[0] + ".png"
+        im_name = os.path.join(model_folder, im_name)
+        if os.path.isfile(im_name):
+            # st.write('Found image')
+            im = cv2.imread(im_name)
+            b,g,r = cv2.split(im)
+            im = cv2.merge([r,g,b])
+        else:
+            # st.write('Rendering image')
+            # im = render_step_simple(os.path.join(model_folder, filename), offscreen_renderer = renderer)
+            im = render_step_simple(os.path.join(model_folder, filename))
+
+        # Create columns and add image and sim score
+        c = st.beta_columns(3)
+        c[0].image(im, width = 100)
+        c[1].write(os.path.splitext(filename)[0])
+        c[2].write(score)
+
+
+    st.balloons()
+
+

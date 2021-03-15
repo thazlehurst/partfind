@@ -21,6 +21,7 @@ num = '986' #'003'
 #model = 'C:/Users/prctha/PythonDev/DCS-project-master/examples/models/main assy.stp'
 #model = "C:/Users/prctha/PythonDev/GitHub/DCS-project/examples/models/Torch Assembly.STEP"
 
+import shutil
 
 class StepToGraph():
 	
