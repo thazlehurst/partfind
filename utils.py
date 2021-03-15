@@ -49,3 +49,5 @@ def dgl_grakel(g):
     krakel_graphs = graph_from_networkx(nx_list,as_Graph=True,node_labels_tag='label')
     # print("grakel:",g)
     return krakel_graphs
+    
+

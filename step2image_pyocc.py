@@ -11,7 +11,7 @@ from OCC.Extend.DataExchange import read_step_file
 #from OCC.Extend.DataExchange import read_iges_file
 import numpy
 
-tmp = 'C:\\Users\\prctha\\PythonDev\\partfind\\tmp\\'
+#tmp = 'C:\\Users\\prctha\\PythonDev\\partfind\\tmp\\'
 
 
 def step2image(filename):
