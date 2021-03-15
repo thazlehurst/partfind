@@ -10,6 +10,7 @@ from grakel.kernels import GraphletSampling
 def compare_graphlets(g_list):
     gl_kernel = GraphletSampling(normalize=True)
     grakels = dgl_grakel(g_list)
+    print("converted...")
     grak_list = []
     for i, gr in enumerate(grakels):
       grak_list.append(gr)
@@ -40,6 +41,7 @@ def dgl_grakel(g):
     nx_list = []
     for graph in g:
       # 1. dgl to networkx
+      graph=graph.cpu()
       nx_graph = dgl.to_networkx(graph)
       # 2. networkx to grakel
       for node in nx_graph.nodes():
@@ -51,3 +53,9 @@ def dgl_grakel(g):
     return krakel_graphs
     
 
+def graphlet_pair_compare(graph_1,graph_2):
+    graph_list = [graph_1,graph_2]
+    print("converting graphs..")
+    match_score = compare_graphlets(graph_list)
+    print("match_score",match_score)
+    return match_score
