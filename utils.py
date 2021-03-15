@@ -8,9 +8,9 @@ from grakel.utils import graph_from_networkx
 from grakel.kernels import GraphletSampling
 
 def compare_graphlets(g_list):
-    gl_kernel = GraphletSampling(normalize=True)
+    gl_kernel = GraphletSampling(normalize=True,sampling={'n_samples': 10000})
     grakels = dgl_grakel(g_list)
-    print("converted...")
+    #print("converted...")
     grak_list = []
     for i, gr in enumerate(grakels):
       grak_list.append(gr)
@@ -55,7 +55,7 @@ def dgl_grakel(g):
 
 def graphlet_pair_compare(graph_1,graph_2):
     graph_list = [graph_1,graph_2]
-    print("converting graphs..")
+    #print("converting graphs..")
     match_score = compare_graphlets(graph_list)
-    print("match_score",match_score)
-    return match_score
+    #print("match_score",match_score[0])
+    return match_score[0][1][0]
