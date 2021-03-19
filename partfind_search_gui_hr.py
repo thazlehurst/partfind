@@ -158,7 +158,7 @@ if uploaded_file is not None:
 
   with st.spinner(text="Rendering file..."):
     image0 = render_step(uploaded_file, remove_tmp = False)
-    st.image(image0,caption="Input model",width=400)
+    st.image(image0,caption="Input model",width=200)
 
 
 

@@ -29,7 +29,7 @@ import networkx as nx
 
 class PartGNN(torch.nn.Module):
 
-    def __init__(self, args):
+    def __init__(self, args, save_folder = "./trained_models/"):
         """
         :param args: Arguments object
         """
@@ -37,7 +37,7 @@ class PartGNN(torch.nn.Module):
         self.args = args
         self.verbose = self.args.verbose
         self.save_frequency = 1
-        self.save_folder = "./trained_models/"
+        self.save_folder = save_folder
         if self.verbose:
             print("Verbose enabled")
         
