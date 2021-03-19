@@ -130,7 +130,8 @@ model = PartGNN(args)
 model.load_model()
 
 # model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__parts"
-model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__cakebox_parts"
+# model_folder = "C:\_Work\_DCS project\__ALL CODE\_Repos\StrEmbed-5-6\StrEmbed-5-6 for git\__cakebox_parts"
+model_folder = "C:\\_Work\\_DCS project\\__ALL CODE\\_Repos\\StrEmbed-5-6\\StrEmbed-5-6 for git\\assorted"
 image_folder = model_folder
 cwd = os.getcwd()
 save_folder = os.path.join(cwd,"save_data")
