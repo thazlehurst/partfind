@@ -48,9 +48,7 @@ def dgl_grakel(g):
         
     krakel_graphs = graph_from_networkx(nx_list,as_Graph=True,node_labels_tag='label')
     # print("grakel:",g)
-<<<<<<< Updated upstream
-    return krakel_graphs
-=======
+
     return krakel_graphs
     
 
@@ -60,4 +58,3 @@ def graphlet_pair_compare(graph_1,graph_2):
     match_score = compare_graphlets(graph_list)
     #print("match_score",match_score[0])
     return match_score[1][0]
->>>>>>> Stashed changes
