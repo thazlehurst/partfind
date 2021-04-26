@@ -8,7 +8,8 @@ from grakel.utils import graph_from_networkx
 from grakel.kernels import GraphletSampling
 
 def compare_graphlets(g_list):
-    gl_kernel = GraphletSampling(normalize=True)
+    gl_kernel = GraphletSampling(normalize=True,sampling={'n_samples': 10000})
+    # gl_kernel = GraphletSampling(normalize=True)
     grakels = dgl_grakel(g_list)
     grak_list = []
     for i, gr in enumerate(grakels):
@@ -40,6 +41,7 @@ def dgl_grakel(g):
     nx_list = []
     for graph in g:
       # 1. dgl to networkx
+      graph=graph.cpu()
       nx_graph = dgl.to_networkx(graph)
       # 2. networkx to grakel
       for node in nx_graph.nodes():
@@ -48,7 +50,6 @@ def dgl_grakel(g):
         
     krakel_graphs = graph_from_networkx(nx_list,as_Graph=True,node_labels_tag='label')
     # print("grakel:",g)
-
     return krakel_graphs
     
 
