@@ -1,0 +1,11 @@
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\0000022553.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\0000023602.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\0000025922.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\0000026074.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\0000026437.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\0000034048.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\9503-0121-12_D2-535-300-190___1.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\9503-0121-22_D2-535-300-190___1.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\9860-0185-02_1.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\FILLET4_1.STEP
+C:\Users\prctha\PythonDev\Datasets\cakebox_parts\FILLET4_1_2.STEP
