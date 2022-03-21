@@ -16,7 +16,7 @@ import pandas as pd
 import os
 import cv2
 import torch
-from model.model import GCNTriplet
+from Model.model import GCNTriplet
 from CADDataset import CADDataset
 from torch_geometric.data import DataLoader
 import pickle
