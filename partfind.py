@@ -15,10 +15,15 @@ class PartFind():
         super(PartFind,self).__init__()
         
         
+    '''
+    Dataset management
+    '''
+        
+        
     def load_dataset(self):
         self.dataset = CADDataset(".\\Dataset\\Dataset-Cakebox", "cakebox_nx.pickle", force_reprocess=False)
         
-    def create_dataset(self,root='.\\Dataset',file_name= "ABC_nx.pickle",triple_file=None,):
+    def create_dataset(self,root='.\\Dataset',file_name= "ABC_nx.pickle",triple_file=None,add_cats=False):
         '''
         This generates a dataset from .pickled set of nx graphs
         root: The folder your pickle is in and where you want your dataset stored.
@@ -39,3 +44,11 @@ class PartFind():
             return
         
         assert (triple_file == None) and (add_cats == False), "Atleast one of 'triple_file' or 'add_cats' must be used"
+        
+        
+
+if __name__ == "__main__":
+   print("Testing PartFind")
+   pf = PartFind().create_dataset()   
+else:
+   print("PartFind_v2 Imported")
