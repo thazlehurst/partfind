@@ -1,93 +1,126 @@
+## Script for taking input step file, and exporting a isometric rendering of it as an image using pythonocc
+
+
 import sys
-#sys.path.append('C:\\Users\\prctha\\AppData\\Local\\Continuum\\anaconda3\\envs\\fc\\Library\\bin')
-#sys.path.append('C:\\Users\\prctha\\Anaconda3\\envs\\partfind\\Library\\bin')
-
-sys.path.append('C:\\Users\\prctha\\AppData\\Local\\FreeCAD 0.18\\bin')
-
-import FreeCAD
-import Part
-import numpy as np
-import Mesh
-from pivy import coin
 import os
+import shutil
+import cv2
+from OCC.Display.OCCViewer import Viewer3d
+from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+from OCC.Extend.DataExchange import read_step_file
+#from OCC.Extend.DataExchange import read_iges_file
+import numpy
 
-COIN_FULL_INDIRECT_RENDERING=1
+#tmp = 'C:\\Users\\prctha\\PythonDev\\partfind\\tmp\\'
 
-def light(x,y,z,c1,c2,c3,i):
-  light = coin.SoDirectionalLight()
-  light.on = True
-  light.color = (c1,c2,c3)
-  light.intensity = i
-  light.direction = (x,y,z)
-  return light
 
-def makeSnapshotWithoutGui(stepfilename): # full path
-    stepfilename = os.path.basename(stepfilename)
-    # determine output file names
-    ivfilename = os.path.splitext(stepfilename)[0] + ".iv"
-    ivfilename = os.path.join('C:\\Users\\prctha\\PythonDev\\partfind\\tmp\\',ivfilename)
-    print(ivfilename)
-#    psfilename = os.path.splitext(stepfilename)[0] + ".ps"
-    pngfilename = os.path.splitext(stepfilename)[0] + ".png"
-    print(pngfilename)
-    pngfilename = os.path.join('C:\\Users\\prctha\\PythonDev\\partfind\\tmp\\',pngfilename)
-    print(pngfilename)
-#    pngfilename = "test2.png"
+def step2image(filename):
+	print("filename:",filename)
+	# igesfiles = "/nobackup/prctha/CadGrabData/Models/IgsFiles/"
+	# igesimages = "/nobackup/prctha/CadGrabData/Models/IgsImages/"
+	# stepfilename = os.path.basename(filename)
+	# pngfilename = os.path.join(tmp,stepfilename) + ".png"
 
-    # open a STEP file
-    print(stepfilename)
-    shape=Part.read(stepfilename)
-    #shape=mesh
-    print(ivfilename)
-    f=open(ivfilename,"w")
-    f.write(shape.writeInventor())
-    f.close()
 
-    # convert to iv format
-    inp=coin.SoInput()
-    inp.openFile(ivfilename)
+def render_step(step_file,remove_tmp=True):
+	# need to create temp file
+	# print("type",type(step_file.read()))
+	# tmp_file = os.path.join('./tmp/',step_file.name)
+	# f = open(tmp_file,'wb')
+	# print(step_file.read())
+	# f.write(step_file.read())
+	# f.close()
+	if isinstance(step_file, str):
+		tmp_file = os.path.join('./tmp/',os.path.basename(step_file))
+		print("step_file",step_file)
+		print("tmp_file",tmp_file)
+		shutil.copyfile(step_file, tmp_file)
+	else:
+		bytesData = step_file.getvalue()
+		tmp_file = os.path.join('./tmp/',step_file.name)
+		f = open(tmp_file,'wb')
+		f.write(bytesData)
+		f.close()
 
-    # and create a scenegraph
-    data = coin.SoDB.readAll(inp)
-    base = coin.SoBaseColor()
-    base.rgb.setValue(0.9,0.7,1.0)
-    data.insertChild(base,0)
+	# create the renderer
+	size = 600
+	offscreen_renderer = Viewer3d() # None
+	offscreen_renderer.Create()
+	offscreen_renderer.SetSize(size, size)
+	offscreen_renderer.SetModeShaded()
 
-    # add light and camera so that the rendered geometry is visible
-    root = coin.SoSeparator()
-    # light = coin.SoDirectionalLight()
-    lig = light(-1,0,-1,1,1,1,1)
-    lig2 = light(1,1,-2,0.7,0.7,0.7,0.7)
-    cam = coin.SoOrthographicCamera()
-    root.addChild(cam)
-    root.addChild(lig)
-    root.addChild(lig2)
-    root.addChild(data)
 
-    # do the rendering now
-    axo = coin.SbRotation(-0.353553, -0.146447, -0.353553, -0.853553)
-    viewport=coin.SbViewportRegion(512,512)
-    cam.orientation.setValue(axo)
-    cam.viewAll(root,viewport)
-    off=coin.SoOffscreenRenderer(viewport)
+	shp = read_step_file(tmp_file)
 
-    # background color
-    bgColor = coin.SbColor(0.8, 0.8, 0.8)
-    off.setBackgroundColor(bgColor)
+	offscreen_renderer.DisplayShape(shp, update=True) #color="orange"
 
-    root.ref()
-    off.render(root)
-    root.unref()
+	# send the shape to the renderer
+	#change view point
+	cam = offscreen_renderer.View.Camera()
 
-    # export the image, PS is always available
-#    off.writeToPostScript(psfilename)
+	center = cam.Center()
+	eye = cam.Eye()
 
-    # Other formats are only available if simage package is installed
-    if off.isWriteSupported("PNG"):
-        off.writeToFile(pngfilename,"PNG")
-#        
-    # delete temp file
-    os.remove(ivfilename)
+	#start_display()
+	data = offscreen_renderer.GetImageData(size, size) # 1
 
-#sys.argv[1]
-makeSnapshotWithoutGui(sys.argv[1])
+	#set background colour
+	offscreen_renderer.set_bg_gradient_color([255,255,255],[255,255,255])
+
+	# set ray tracing
+	offscreen_renderer.SetRaytracingMode(depth=3)
+
+	#eye.SetY(eye.Y() + 45)
+	#cam.SetEye(eye)
+	offscreen_renderer.View.ZFitAll()
+	offscreen_renderer.Context.UpdateCurrentViewer()
+
+	data = offscreen_renderer.GetImageData(size, size) # 1
+	png_name = os.path.splitext(tmp_file)[0] + ".png" # step_file.name
+	# export the view to image
+	tmp_png = png_name #os.path.join('./tmp/',png_name)
+	offscreen_renderer.View.Dump(tmp_png)
+#    offscreen_renderer.View.Dump(testout)
+
+	image = cv2.imread(tmp_png,3)
+	b,g,r = cv2.split(image)           # get b, g, r
+	image = cv2.merge([r,g,b])
+
+	# delete tmp files
+	if remove_tmp:
+		os.remove(tmp_png)
+	os.remove(tmp_file)
+
+	return image
+
+
+
+def render_step_simple(step_file, offscreen_renderer = None, size = 600):
+
+    if not offscreen_renderer:
+        offscreen_renderer = Viewer3d()
+        offscreen_renderer.Create()
+        offscreen_renderer.SetModeShaded()
+        offscreen_renderer.SetSize(size, size)
+
+    shp = read_step_file(step_file)
+    offscreen_renderer.EraseAll()
+
+    offscreen_renderer.DisplayShape(shp, update=True) #color="orange"
+
+    offscreen_renderer.set_bg_gradient_color([255,255,255],[255,255,255])
+    offscreen_renderer.SetRaytracingMode(depth=3)
+
+    offscreen_renderer.View.FitAll()
+    offscreen_renderer.View.ZFitAll()
+    # offscreen_renderer.Context.UpdateCurrentViewer()
+
+    im_name = os.path.splitext(step_file)[0] + ".png"
+    offscreen_renderer.View.Dump(im_name)
+
+    image = cv2.imread(im_name,3)
+    b,g,r = cv2.split(image)
+    image = cv2.merge([r,g,b])
+
+    return image
+
