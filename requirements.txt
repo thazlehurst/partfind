@@ -1,6 +1,6 @@
-conda install -c conda-forge pythonocc-core=7.5.1
+conda install -c conda-forge pythonocc-core=7.5.1 occt=7.5.1
 opencv-python
 torch==1.10.0+cpu torchvision==0.11.1+cpu torchaudio==0.10.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
 torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://data.pyg.org/whl/torch-1.9.0+cpu.html
 pydot
-streamlit
+conda install matplotlib

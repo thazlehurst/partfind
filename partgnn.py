@@ -8,332 +8,418 @@ https://github.com/thazlehurst/partfind/blob/ab5f48d2697b1c219d1ecf4cff3efe9e1cd
 '''
 
 
-
-
-
-#### old version line
-
-
-
-""" PartGNN """
-#https://github.com/benedekrozemberczki/SimGNN/blob/master/src/simgnn.py#L212
-
-
-# tomorrow to do
-
-
-# add test for test_Dataset
-# add batching
-
-
 import torch
-import dgl
-import os
-from Dataset.ABCSiameseDataset import ABCSiameseDataset
-from Dataset.ABCDataset import ABCDataset
-from utils import print_graph, compare_graphlets
-#from step2image_pyocc import render_step
-
-
-
-
-from Model.model import PartGNN as GNN
-from tqdm import tqdm
-import math
+import time
 import numpy as np
-from torch.utils.data.sampler import SubsetRandomSampler
+from pylab import zeros, arange, subplots, plt, savefig
+from model import GCNTriplet
+from CADDataset import CADDataset
+from torch.nn import TripletMarginLoss, BCELoss
+from torch_geometric.data import DataLoader
 
 
-import grakel
-from grakel.utils import graph_from_networkx
-from grakel.kernels import GraphletSampling
-import networkx as nx
+class PartGNN():
 
-
-class PartGNN(torch.nn.Module):
-
-    def __init__(self, args):
+    def __init__(self, dataset, args):
         """
         :param args: Arguments object
         """
         super(PartGNN, self).__init__()
         self.args = args
         self.verbose = self.args.verbose
+        
         self.save_frequency = 1
         self.save_folder = "./trained_models/"
         if self.verbose:
             print("Verbose enabled")
         
-        if os.name == 'nt':
-            self.model_folder = "C:\\Users\\prctha\\PythonDev\\ABC_Data"
-        else:
-            self.model_folder = "/nobackup/prctha/dgl/Dataset/gz"
-        self.step_dataset = []
-        
-
-        
-
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         if self.verbose:
             print("Using device:",self.device)
-        self.dataset_loaded = False
-
-        #self.create_dataset()
-        #self.load_dataset()
-        #self.setup_layers()
-        #self.train()
-        #self.test()
-        #self.create_lib()
-        #self.load_model_find()
-        #self.find_parts([],n=3)
         
-    
-    def create_dataset(self):
-    #Function to create the dataset
-    
-        print("Loading dataset from step files...")
-        model_folder = self.model_folder
-        self.step_dataset = ABCDataset(raw_dir='Dataset/')
-        print("Step files loaded")
-        print("Creating siamese dataset...")
+        self.training = True
         
-        raw_dir = self.args.dataset
-        dataset_range = self.args.dataset_range
-        
-        self.dataset = ABCSiameseDataset(
-        self.step_dataset,
-        raw_dir=raw_dir,
-        verbose=self.verbose,
-        dataset_range=dataset_range,
-        force_reload=True,
-        continue_dataset=True)
-        
-    
-    def load_dataset(self):
         # load dataset
-        print("Initalising dataset...")
-        raw_dir = self.args.dataset
-        dataset_range = self.args.dataset_range
-        print("dataset_range",dataset_range)
-        if dataset_range==None:
-            dataset_range=[0,1000000]
-        # to impliment load dataset from abc folder
-        single_dataset = []
-        model_folder = self.model_folder
-        self.dataset = ABCSiameseDataset(
-        self.step_dataset,
-        raw_dir=raw_dir,
-        verbose=self.verbose,
-        force_reload=False,
-        continue_dataset=False)
+        self.dataset = dataset
         
+        #load model
+        try:
+            self.convtype = self.args.convtype
+        except:
+            self.convtype = 'NNConv'
+            print("Convolution type not defined using ",self.convtype)
+        # convtype = "GraphConv"
+        print("self.convtype:", self.convtype)
+        self.model = GCNTriplet(hidden_channels=32,
+                           dataset=dataset,
+                           nb_layers=3,
+                           convtype=self.convtype).to(self.device)
+                           
+        self.train_loader = None
+        self.test_loader = None
         
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        self.criterion = TripletMarginLoss(margin=1.0, p=2)
+        self.criterion2 = BCELoss()
         
-        batch_size = self.args.batch_size
-        validation_split = .2
-        shuffle_dataset = True
-        random_seed= 42
+    def load_data(self):
+        if self.train_loader == None:
+            dataset = self.dataset
+            
+            dataset = dataset.shuffle()
 
-        # Creating data indices for training and validation splits:
-        dataset_size = len(self.dataset)
-        indices = list(range(dataset_size))
-        split = int(np.floor(validation_split * dataset_size))
-        if shuffle_dataset :
-            np.random.seed(random_seed)
-            np.random.shuffle(indices)
-        train_indices, val_indices = indices[split:], indices[:split]
+            split = 0.8
+            train_split = int(len(dataset)*0.8)
 
-        # Creating PT data samplers and loaders:
-        self.train_sampler = SubsetRandomSampler(train_indices)
-        self.valid_sampler = SubsetRandomSampler(val_indices)
-        
-        self.dataset_loaded = True
-        
-        # ## test
-        # print("test point")
-        # for i in range(6,7):
-            # print("i:",i)
-            # graphs, targets, filenames = self.dataset[i]
-            # #print("graphs", graphs)
-            # print("filename:",filenames)
-            # #model_folder = self.model_folder
-# #            for filename in filenames:
-# #                model_file = self.__gz2step(os.path.join(model_folder,filename))
-# #                image1 = render_step(model_file,remove_tmp=False)
-            # print("targets",targets)
-            # g1,g2,g3 = dgl.unbatch(graphs)
-            # #print("g1",g1)
-            # #print("g2",g2)
-            # #print("g3",g3)
-            # print_graph(g1,str(i)+"tmp/g1.png")
-            # print_graph(g2,str(i)+"tmp/g2.png")
-            # print_graph(g3,str(i)+"tmp/g3.png")
-            # values2, _ = compare_graphlets([g1,g2,g3])
-            # print("values2",values2)
+            train_dataset = dataset[:train_split]
+            test_dataset = dataset[train_split:]
 
-    def __gz2step(self,filename):
-        return os.path.splitext(filename)[0]+".step"
-        
-        
+            self.dataset_loaded = False
+
+
+            print(f'Number of training graphs: {len(train_dataset)}')
+            print(f'Number of test graphs: {len(test_dataset)}')
+
+            batch_size = 32
+
+            self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        else:
+            pass
+            
+            
     def train(self):
-        print("Initalising....")
-        if not self.dataset_loaded:
-            print("self.dataset_loaded",self.dataset_loaded)
-            self.load_dataset()
         
-        batch_size = self.args.batch_size
-        num_epochs = self.args.epochs
+        self.training = True
+        torch.random.get_rng_state()
         
-        train_loader = torch.utils.data.DataLoader(self.dataset,
-                                                    batch_size=batch_size, collate_fn=self.__collate_single,sampler=self.train_sampler)
-                                                    
-        
-        model = GNN(self.args)
-        model.to(self.device)
-        
-        self.optimizer = torch.optim.Adam(model.parameters(),
-                                          lr=self.args.learning_rate,
-                                          weight_decay=self.args.weight_decay)
-        
-        model.train()
-        
-        for epoch in range(0,self.args.epochs):
-            print("Epoch",epoch+1, "...")
+        epochs = 1+ self.args.epochs
+        # Plotting config
+        plot = True
+        plot_data = {}
+        plot_data['train_loss'] = zeros(epochs)
+        plot_data['train_correct_triplets'] = zeros(epochs)
+        plot_data['train_correct_percent'] = zeros(epochs)
+        plot_data['train_correct_similarity'] = zeros(epochs)
+        plot_data['train_correct_score'] = zeros(epochs)
+        plot_data['val_loss'] = zeros(epochs)
+        plot_data['val_correct_triplets'] = zeros(epochs)
+        plot_data['val_correct_percent'] = zeros(epochs)
+        plot_data['val_correct_similarity'] = zeros(epochs)
+        plot_data['val_correct_score'] = zeros(epochs)
+        plot_data['epoch'] = 0
+        it_axes = arange(epochs)
+        _, ax1 = subplots()
+        ax2 = ax1.twinx()
+        ax1.set_xlabel('epoch')
+        ax1.set_ylabel('train loss (r), val loss (y)')
+        ax2.set_ylabel('train correct pairs (b), val correct pairs (g)')
+        ax2.set_autoscaley_on(False)
+        ax1.set_ylim([0, 2])
+        ax2.set_ylim([0, 1])
+    
+    
+        for epoch in range(1, epochs):
+            plot_data['epoch'] = epoch
+            plot_data = self.__train(epoch, plot_data)
+            plot_data = self.__validate(epoch, plot_data)
+
+            if self.args.trainplot:
+                ax1.plot(it_axes[0:epoch+1], plot_data['train_loss'][0:epoch+1], 'r')
+                ax2.plot(it_axes[0:epoch+1],
+                         plot_data['train_correct_percent'][0:epoch+1], 'b')
+
+                ax1.plot(it_axes[0:epoch+1], plot_data['val_loss'][0:epoch+1], 'y')
+                ax2.plot(it_axes[0:epoch+1],
+                         plot_data['val_correct_percent'][0:epoch+1], 'g', '-')
+
+                plt.title("Testing")
+                plt.grid(True)
             
-            self.loss_sum = 0
-            main_index = 0
-            
-            skipped = 0
-            
-            for batch_idx, (data, targets, file_names) in enumerate(tqdm(train_loader)):
-                #print("batch_idx",batch_idx)
-                # print("data",data)
-                # 
-                #if batch_idx == 1:
-                    #print("targets",targets)
-                # print("file_names",file_names)
+            self.save_model(epoch)
                 
-                if targets[0] != targets[0]:
-                    #print("targets[0]",targets[0])
-                    skipped += 1
-                    continue
-                elif targets[1] != targets[1]:
-                    #print("targets[1]",targets[1])
-                    skipped += 1
-                    continue
-                
-                self.optimizer.zero_grad()
-                
-                # unbatch
-                gb = dgl.unbatch(data)
-                # print("gb[0::3]",gb[0::3])
-                # group into three batches
-                batch_0 = dgl.batch(gb[0::3]).to(self.device)
-                batch_1 = dgl.batch(gb[1::3]).to(self.device)
-                batch_2 = dgl.batch(gb[2::3]).to(self.device)
-                
-                targets = targets.to(self.device)
-                
-                
-                
-                
-                # print("batch_0.batch_size",batch_0.batch_size)
-                score_match = model(batch_0,batch_1) # sample, match, not match
-                score_unmatch = model(batch_0,batch_2)
-                
-                # print("score_match",score_match)
-                
-                if batch_size == 1:
-                    targets_match = targets[0]
-                    targets_match = targets_match.reshape(1,1)
-                    targets_match = targets_match.type(torch.float32)
-                    targets_unmatch = targets[1]
-                    targets_unmatch = targets_unmatch.reshape(1,1)
-                    targets_unmatch = targets_unmatch.type(torch.float32)
-                else:
-                    targets_match = torch.squeeze(targets[:,0])
-                    targets_match = targets_match.type(torch.float32)
-                    targets_unmatch = torch.squeeze(targets[:,1])
-                    targets_unmatch = targets_unmatch.type(torch.float32)
-                
-                # print("targets_match.shape",targets_match.shape)
-                # print("score_match.shape",score_match.shape)
-                
-                loss_match = torch.nn.functional.mse_loss(targets_match,score_match)
-                loss_unmatch = torch.nn.functional.mse_loss(targets_unmatch,score_unmatch)
-                losses = loss_match + loss_unmatch
-                
-#                if loss_match != loss_match:
-#                    print('batch_0',batch_0)
-#                    print('batch_1',batch_1)
-#                    print('batch_2',batch_2)
-#                    print('targets',targets)
-#                    print('targets_match',targets_match)
-#                    print('loss_match',loss_match)
-#                if loss_unmatch != loss_unmatch:
-#                    print('batch_0',batch_0)
-#                    print('batch_1',batch_1)
-#                    print('batch_2',batch_2)
-#                    print('targets',targets)
-#                    print('targets_match',targets_unmatch)
-#                    print('loss_unmatch',loss_unmatch)
-                
-                
-                losses.backward() # retain_graph=True
-                self.optimizer.step()
-                loss_score = losses.item()
-                
-                self.loss_sum = self.loss_sum + loss_score * batch_size
-                main_index = main_index + batch_size
-                loss = self.loss_sum/main_index
-            
-            print("Skipped:",skipped)    
-            print("Epoch",epoch+1,"loss =",loss)
-            if True:#epoch & self.save_frequency == 0:
-                torch.save(model, os.path.join(self.save_folder,'partfind_{:03}.pt').format(epoch))
-            self.test()
-                
-    def __collate_single(self,batch):
-        assert len(batch) == 1, 'Currently we do not support batched training'
-        return batch[0]
+    def save_model(self,epoch):
+        torch.save(self.model.state_dict(), str(self.args.trained_model) + self.convtype + "_epoch" + str(epoch).zfill(2) + "of" + str(self.args.epochs) + ".pt")
+
+    def __train(self,epoch,plot_data):
+    
+        self.load_data()
         
-    def __collate(self,samples):
-        #currently not supported
-        # print("samples:",samples)
-        graphs, targets, file_names = map(list, zip(*samples))
-        # print("graphs:",graphs)
-        # print("graphslen",len(graphs))
-        # print("file_names",file_names)
-        batched_graph = dgl.batch(graphs)
-        # print("targets:",targets)
-        batched_targets = torch.stack(targets)
-        # print("batched_targets:",batched_targets)
-        return batched_graph, batched_targets , file_names
+        
+        
+        print(self.model)
+        
+        
+        
+        batch_time = self.AverageMeter()
+        data_time = self.AverageMeter()
+        loss_meter = self.AverageMeter()
+        correct_triplets = self.AverageMeter()
+        correct_percent = self.AverageMeter()
+        correct_similarity = self.AverageMeter()
+        correct_score = self.AverageMeter()
+
+        self.model.train()
+        
+        
+        end = time.time()
+        # Iterate in batches over the training dataset.
+        for i, (data0, data1, data2) in enumerate(self.train_loader):
+
+            # measure data loading time
+            data_time.update(time.time() - end)
+
+            data0 = data0.to(self.device)
+            data1 = data1.to(self.device)
+            data2 = data2.to(self.device)
+
+            # data0 is anchor model, data1 is positive model, data2 is negative model
+            if self.convtype in ['GCNConv', 'GraphConv']:  # node features only
+              kwargs = {"x0": data0.x, "edge_index0": data0.edge_index, "batch0": data0.batch,
+                        "x1": data1.x, "edge_index1": data1.edge_index, "batch1": data1.batch,
+                        "x2": data2.x, "edge_index2": data2.edge_index, "batch2": data2.batch}
+            elif self.convtype in ['NNConv']:  # node and edge features
+              kwargs = {"x0": data0.x, "edge_index0": data0.edge_index, "batch0": data0.batch, "edge_attr0": data0.edge_attr,
+                        "x1": data1.x, "edge_index1": data1.edge_index, "batch1": data1.batch, "edge_attr1": data1.edge_attr,
+                        "x2": data2.x, "edge_index2": data2.edge_index, "batch2": data2.batch, "edge_attr2": data2.edge_attr}
+
+            # Perform a single forward pass for each model.
+            out0, out1, out2, correct, score_p, score_n, correct_s = self.model(**kwargs)
+
+            loss = self.criterion(out0, out1, out2)  # Compute the losses.
+
+            target_p = torch.ones(score_p.shape[0], 1).to(self.device)
+            target_n = torch.zeros(score_p.shape[0], 1).to(self.device)
+
+            # remove score element
+            loss2a = self.criterion2(score_p, target_p)
+            loss2b = self.criterion2(score_n, target_n)
+            #print("loss",loss)
+            a = torch.tensor(0.5, requires_grad=True)
+            loss = (1-a)*loss + a*(loss2a+loss2b)
+
+            # measure and record loss
+            loss_meter.update(loss.data.item(), out1.size()[0])
+            correct_triplets.update(torch.sum(correct))
+            correct_percent.update(correct_triplets.val/out1.size()[0])
+            correct_score.update(torch.sum(correct_s)/out1.size()[0])
+
+            # calculate score errors
+            pred = np.round(score_p.cpu().detach())
+            target = np.round(target_p.cpu().detach())
+            acc_p = self.__accuracy_score(target, pred)
+            pred = np.round(score_p.cpu().detach())
+            target = np.round(target_p.cpu().detach())
+            acc_n = self.__accuracy_score(target, pred)
+            #print("pos acc",acc_p,"neg acc",acc_n)
+
+            acc = (acc_p + acc_n)/2
+            correct_similarity.update(acc)
+
+            #print("loss",loss)
+            loss.backward()  # Derive gradients.
+            self.optimizer.step()  # Update parameters based on gradients.
+            self.optimizer.zero_grad()  # Clear gradients.
+
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+
+            if i % self.args.print_freq == 0:
+                print('Epoch: [{0}][{1}/{2}]\t'
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      #'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Correct Triplets {correct_triplets.val:.3f} ({correct_triplets.avg:.3f})\t'
+                      'Correct Percent {correct_percent.val:.3f} ({correct_percent.avg:.3f}) \t'
+                      'Sim acc {correct_similarity.val:.3f} ({correct_similarity.avg:.3f}) \t'
+                      'score acc {correct_score.val:.3f} ({correct_score.avg:.3f}) \t'
+                      .format(
+                          epoch, i, len(self.train_loader), batch_time=batch_time,
+                          data_time=data_time, loss=loss_meter, correct_triplets=correct_triplets, correct_percent=correct_percent,
+                          correct_similarity=correct_similarity, correct_score=correct_score))
+
+                # break
+                #assert 1==0
+
+        plot_data['train_loss'][plot_data['epoch']] = loss_meter.avg
+        plot_data['train_correct_triplets'][plot_data['epoch']] = correct_triplets.avg
+        plot_data['train_correct_percent'][plot_data['epoch']] = correct_percent.avg
+        plot_data['train_correct_similarity'][plot_data['epoch']
+                                              ] = correct_similarity.avg
+        plot_data['train_correct_score'][plot_data['epoch']] = correct_score.avg
+        return plot_data
+
+    def __accuracy_score(self,true, pred):
+        correct = 0
+        for i, _ in enumerate(pred):
+            if true[i] == pred[i]:
+                correct += 1
+        return correct/len(pred)
+        
+            
+    def __validate(self,epoch, plot_data, print_freq=1):
+        batch_time = self.AverageMeter()
+        data_time = self.AverageMeter()
+        loss_meter = self.AverageMeter()
+        correct_triplets = self.AverageMeter()
+        correct_percent = self.AverageMeter()
+        correct_similarity = self.AverageMeter()
+        correct_score = self.AverageMeter()
+        
+        self.load_data()
+        
+        self.model.eval()
+
+        end = time.time()
+        with torch.no_grad():
+            # Iterate in batches over the training dataset.
+            for i, (data0, data1, data2) in enumerate(self.test_loader):
+
+                # measure data loading time
+                data_time.update(time.time() - end)
+
+                data0 = data0.to(self.device)
+                data1 = data1.to(self.device)
+                data2 = data2.to(self.device)
+
+                # data0 is anchor model, data1 is positive model, data2 is negative model
+                if self.convtype in ['GCNConv', 'GraphConv']:  # node features only
+                    kwargs = {"x0": data0.x, "edge_index0": data0.edge_index, "batch0": data0.batch,
+                              "x1": data1.x, "edge_index1": data1.edge_index, "batch1": data1.batch,
+                              "x2": data2.x, "edge_index2": data2.edge_index, "batch2": data2.batch}
+                elif self.convtype in ['NNConv']:  # node and edge features
+                    kwargs = {"x0": data0.x, "edge_index0": data0.edge_index, "batch0": data0.batch, "edge_attr0": data0.edge_attr,
+                              "x1": data1.x, "edge_index1": data1.edge_index, "batch1": data1.batch, "edge_attr1": data1.edge_attr,
+                              "x2": data2.x, "edge_index2": data2.edge_index, "batch2": data2.batch, "edge_attr2": data2.edge_attr}
+
+                # Perform a single forward pass for each model.
+                out0, out1, out2, correct, score_p, score_n, correct_s = self.model(**kwargs)
+
+                # out0 = model(data0.x, data0.edge_index, data0.batch)  # Perform a single forward pass for each model.
+                # out1 = model(data1.x, data1.edge_index, data1.batch)  # Perform a single forward pass for each model.
+                # out2 = model(data2.x, data2.edge_index, data2.batch)  # Perform a single forward pass for each model.
+
+                loss = self.criterion(out0, out1, out2)  # Compute the loss.
+                #print("loss",loss)
+
+                target_p = torch.ones(score_p.shape[0], 1).to(self.device)
+                target_n = torch.zeros(score_p.shape[0], 1).to(self.device)
+
+                loss2a = self.criterion2(score_p, target_p)
+                loss2b = self.criterion2(score_n, target_n)
+                # print("loss",loss)
+                a = torch.tensor(0.5, requires_grad=True)
+                loss = (1-a)*loss + a*(loss2a+loss2b)
+
+                # measure and record loss
+                loss_meter.update(loss.data.item(), out1.size()[0])
+                correct_triplets.update(torch.sum(correct))
+                #correct_percent = 100*correct_triplets.val/out1.size()[0]
+                correct_percent.update(correct_triplets.val/out1.size()[0])
+                correct_score.update(torch.sum(correct_s)/out1.size()[0])
+
+                # calculate score errors
+                pred = np.round(score_p.cpu().detach())
+                target = np.round(target_p.cpu().detach())
+                acc_p = self.__accuracy_score(target, pred)
+                pred = np.round(score_n.cpu().detach())
+                target = np.round(target_n.cpu().detach())
+                acc_n = self.__accuracy_score(target, pred)
+                print("pos acc", acc_p, "neg acc", acc_n)
+
+                acc = (acc_p + acc_n)/2
+                correct_similarity.update(acc)
+
+                # measure elapsed time
+                batch_time.update(time.time() - end)
+                end = time.time()
+
+                if i % print_freq == 0:
+                    print('Validation: [{0}][{1}/{2}]\t'
+                          'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                          #'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                          'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                          'Correct Triplets {correct_triplets.val:.3f} ({correct_triplets.avg:.3f})\t'
+                          'Correct Percent {correct_percent.val:.3f} ({correct_percent.avg:.3f}) \t'
+                          'Sim acc {correct_similarity.val:.3f} ({correct_similarity.avg:.3f}) \t'
+                          'score acc {correct_score.val:.3f} ({correct_score.avg:.3f}) \t'
+                          .format(
+                              epoch, i, len(self.test_loader), batch_time=batch_time,
+                              data_time=data_time, loss=loss_meter, correct_triplets=correct_triplets, correct_percent=correct_percent,
+                              correct_similarity=correct_similarity, correct_score=correct_score))
+
+                  # break
+
+        plot_data['val_loss'][plot_data['epoch']] = loss_meter.avg
+        plot_data['val_correct_triplets'][plot_data['epoch']] = correct_triplets.avg
+        plot_data['val_correct_percent'][plot_data['epoch']] = correct_percent.avg
+        plot_data['val_correct_similarity'][plot_data['epoch']
+                                              ] = correct_similarity.avg
+        plot_data['val_correct_score'][plot_data['epoch']] = correct_score.avg
+
+        return plot_data
         
 
-    def test(self):
-        print("Testing....")
-        if not self.dataset_loaded:
-            print("self.dataset_loaded",self.dataset_loaded)
-            self.load_dataset()
+    def load_model(self,model_loc=None):
+        if model_loc == None:
+            model_path = self.args.model_loc
+        else:
+            model_path = model_loc
+        self.model.load_state_dict(torch.load(model_path, map_location=self.device), strict=False)
+        self.model.eval()
+        print("Model loaded")
+
+    def get_vectors(self,models_dataset):
+        self.training = False
+        torch.manual_seed(42)
+        print("Getting vectors...")
         
-        batch_size = self.args.batch_size
-        num_epochs = self.args.epochs
+        self.model.eval()
         
-        test_loader = torch.utils.data.DataLoader(self.dataset,
-                                                    batch_size=1, collate_fn=self.__collate_single,sampler=self.valid_sampler)
-        scores = []
-        
-        
-        model = GNN(self.args)
-        
-        #chooses most recent file if none specified # needs implimenting
-        def newest(path):
-            files = os.listdir(path)
-            paths = [os.path.join(path, basename) for basename in files]
-            return max(paths, key=os.path.getctime)
-        model_path = newest(self.save_folder)
-        print("loading model:",model_path)
-        model = torch.load(model_path)
-        model.eval()
-        self.scores = []
+        array = np.empty((0,16), int)
+        with torch.no_grad():
+            # Iterate in batches over the training dataset.
+            for i, (data0, _, _) in enumerate(models_dataset):
+
+                data0 = data0.to(self.device)
+                data1 = data0.to(self.device)
+                data2 = data0.to(self.device)
+
+                # data0 is anchor model, data1 is positive model, data2 is negative model
+                if self.convtype in ['GCNConv', 'GraphConv']:  # node features only
+                    kwargs = {"x0": data0.x, "edge_index0": data0.edge_index, "batch0": data0.batch,
+                              "x1": data1.x, "edge_index1": data1.edge_index, "batch1": data1.batch,
+                              "x2": data2.x, "edge_index2": data2.edge_index, "batch2": data2.batch}
+                elif self.convtype in ['NNConv']:  # node and edge features
+                    kwargs = {"x0": data0.x, "edge_index0": data0.edge_index, "batch0": data0.batch, "edge_attr0": data0.edge_attr,
+                              "x1": data1.x, "edge_index1": data1.edge_index, "batch1": data1.batch, "edge_attr1": data1.edge_attr,
+                              "x2": data2.x, "edge_index2": data2.edge_index, "batch2": data2.batch, "edge_attr2": data2.edge_attr}
+
+                # Perform a single forward pass for each model.
+                out0, out1, out2, correct, score_p, score_n, correct_s = self.model(**kwargs)
+                
+                array = np.append(array, np.array(out0), axis=0)
+
+        return array
+
+
+    class AverageMeter(object):
+        """Computes and stores the average and current value"""
+
+        def __init__(self):
+            self.reset()
+
+        def reset(self):
+            self.val = 0
+            self.avg = 0
+            self.sum = 0
+            self.count = 0
+
+        def update(self, val, n=1):
+            self.val = val
+            self.sum += val * n
+            self.count += n
+            self.avg = self.sum / self.count
+
+### use soft max for similarity score

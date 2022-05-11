@@ -29,6 +29,7 @@ class CADDataset(Dataset):
         self.force_reprocess = force_reprocess
         self.add_cats = add_cats
         self.triple_file = triple_file
+        self.filenamelist = []
         super(CADDataset, self).__init__(root, transform, pre_transform)
 
     @property
@@ -78,6 +79,7 @@ class CADDataset(Dataset):
         with open(os.path.join(self.root, "triple_list.csv"), "w", newline='') as f:
             wr = csv.writer(f)
             wr.writerows(list_of_lists)
+        self.filenamelist = list_of_lists
 
     def process(self):
         print(self.raw_paths)
@@ -93,11 +95,15 @@ class CADDataset(Dataset):
             with open(file) as csv_file:
                 csv_reader = csv.reader(csv_file, delimiter=',')
                 for row in csv_reader:
-                    triple_list.append([row[0], row[1], row[2]])
+                    if row != []:
+                        triple_list.append([row[0], row[1], row[2]])
 
             datatrip = {}
             for row in triple_list:
-                datatrip[row[0]] = dataset[row[0]]
+                try:
+                    datatrip[row[0]] = dataset[row[0]]
+                except:
+                    print("Missing:",row[0])
 
         if self.add_cats:
             cat_dict = {}
@@ -126,21 +132,28 @@ class CADDataset(Dataset):
         if self.triple_file == None:
             iterator = dataset.items()
         else:
-            iterator = datatrip.items()
+            iterator = iter(triple_list)#datatrip.items()
         #print(len(iterator), len(triple_list))
         #assert len(iterator) == len(triple_list), "Hmmmm"
+        
         test = False
         catstemp = ['Washers', 'Brackets', 'Gears', 'Nuts']
 
-        for name, graphdata in tqdm(iterator):
-            # for row in tqdm(triple_list):
-            cat = dataset[name]['cat']
-            if cat not in catstemp:
-                continue
+        for item1, item2 in tqdm(iterator):
+            if self.triple_file != None:
+                row = item1
+                name = row[0]
+            
+            else:
+                name = item1
+                graphdata = item2
+        #for row in tqdm(triple_list):
+            #cat = dataset[name]['cat']
+            #if cat not in catstemp:
+            #    continue
             i += 1
 
-            #name = row[0]
-            #print("name", name)
+            print("name", name)
 
             if self.triple_file != None:
                 if test == True:
@@ -175,8 +188,8 @@ class CADDataset(Dataset):
             elif self.triple_file != None:
                 same_name = row[1]
                 diff_name = row[2]
-                print("match", same_name)
-                print("nonmatch", diff_name)
+                #print("match", same_name)
+                #print("nonmatch", diff_name)
                 g_s = dataset[same_name]['graph_nx']
                 g_d = dataset[diff_name]['graph_nx']
                 name_list = [name, same_name, diff_name]
