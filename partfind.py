@@ -1,356 +1,167 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Jan  6 16:41:06 2021
+# python class for partfind, load this then all the functionality should be in here.
+# TH 03/2022
 
-@author: prctha
-"""
 
-# HR 04/03/21
-# To plot rendered images of parts alongside similarity scores
-
-# streamlit test
-
-import streamlit as st
-
-import pandas as pd
-import os
-import cv2
-import torch
-from Model.model import GCNTriplet
+# partgnn isn't in this version, updating from deep cad graph
 from CADDataset import CADDataset
-from torch_geometric.data import DataLoader
-import pickle
+from args import parameter_parser
+from partgnn import PartGNN
+from CreateDataset import create_dataset
 import numpy as np
-from pathlib import Path
-import shutil
-import csv
-# import OCC
-# from OCC.Display.OCCViewer import Viewer3d
 
-from step2image import render_step, render_step_simple
-from step2graph import StepToGraph
+class PartFind():
+    def __init__(self):
+        
+        self.dataset_file = None
+        self.dataset = None
+        self.args = parameter_parser()
+        super(PartFind,self).__init__()
+        
+        self.model_loaded = False
+        self.PGNN = []
+        
+        
+    '''
+    Dataset management
+    '''
+        
+        
+    def load_dataset(self):
+        self.dataset = CADDataset(".\\Dataset\\Dataset-Cakebox", "cakebox_nx.pickle", force_reprocess=False)
+        
+    def create_dataset(self,root='.\\Dataset\\Dataset-Cakebox',file_name= "fabwave_nx.pickle",triple_file=None,add_cats=False):
+        '''
+        This generates a dataset from .pickled set of nx graphs
+        root: The folder your pickle is in and where you want your dataset stored.
+        file_name: name of pickle
+        force_reprocess: Re processed dataset
+        triple_file: is a cvs file containing predetermined triples of file names, a base model, a similar model and a dissimilar model
+        add_cats: if true, then category data is used to find similar or dissimilar models
+        '''
+        if (triple_file == None) and (add_cats == False):
+            print("At least one of 'triple_file' or 'add_cats' must be used") 
+            triple_file = ".\\Dataset\\Dataset-Cakebox\\triple_list.csv"
+        
+        if triple_file != None:
+            self.dataset = CADDataset(root, file_name, force_reprocess=True, triple_file=triple_file)
+            return
+        if add_cats == True:
+            self.dataset = CADDataset(root, file_name, force_reprocess=True, add_cats=add_cats)
+            return
+        
+        assert (triple_file == None) and (add_cats == False), "At least one of 'triple_file' or 'add_cats' must be used"
+    
+    def info_dataset(self):
+        print()
+        print(f'Dataset: {self.dataset}:')
+        print('====================')
+        print(f'Number of graphs: {len(self.dataset)}')
+        print(f'Number of node features: {self.dataset.num_node_features}')
+        print(f'Number of edge features: {self.dataset.num_edge_features}')
+
+        data, data1, data2 = self.dataset[0]  # Get the first graph object.
+
+        print()
+        print(data)
+        print('=============================================================')
+
+        # Gather some statistics about the first graph.
+        print(f'Number of nodes: {data.num_nodes}')
+        print(f'Number of edges: {data.num_edges}')
+        print(f'Number of edge features: {data.num_edge_features}')
+        print(f'Average node degree: {data.num_edges / data.num_nodes:.2f}')
+        print(f'Contains isolated nodes: {data.contains_isolated_nodes()}')
+        print(f'Contains self-loops: {data.contains_self_loops()}')
+        print(f'Is undirected: {data.is_undirected()}')
+        print(f'Number of node features: {data.num_node_features}')
+    '''
+    Training
+    '''
+    def train(self):
+        
+        print(self.args)
+        assert self.dataset != None, "No dataset loaded"
+        self.PGNN = PartGNN(self.dataset,self.args)
+        self.PGNN.train()
+        
+    
+    '''Useful functions'''
+
+    def get_vectors(self, model_list):
+        #### NOTE TO HUGH, I suspect this bit might change depending on how something is loaded from strembed
+        ''' Takes a list of step files, converts them to correct format, then passes them through the network '''
+        
+        
+        # uses step to graph2graph to convert a step into a gz file.
+        tmp_file = "tmp/raw/temp1.gz"
+        create_dataset(model_list,tmp_file)
+        
+        #edit create_dataset, so "dataset folder" can be a model list 
+        model_dataset = CADDataset("tmp",filename="temp1.gz", force_reprocess=True)
+        # load model dataset
+        #print(model_dataset.filenamelist)
+        
+        #print("Models for vectors loaded")
+        
+        
+        self.load_model(model_loc=self.args.model_loc)
+        
+        ''' Return vectors of list of models '''
+        vector_array = self.PGNN.get_vectors(model_dataset)
+        
+        model_dict = {}
+        for i, name in enumerate(model_dataset.filenamelist):
+            model_dict[name[0]] = vector_array[i]
+        return model_dict
+        
+    
+    def compare_pairs(self,model_list):
+        '''
+        Load two models and compare them
+        At the moment this just calls get_vectors and returns results from that
+        
+        '''
+        model_dict = self.get_vectors(model_list)
+        list = [*model_dict]
+        dist = np.linalg.norm(model_dict[list[0]]-model_dict[list[1]])
+        print("distance",dist)
+        return dist, model_dict
+        
+    def find_in_dataset(self,input_vector,dataset_array,list_length=None):
+        '''
+        Compare given model with dataset and return list
+        '''
+        dist_dict = {}
+        for vector in dataset_array:
+            dist = np.linalg.norm(vector_array[0]-vector_array[1])
+            dist_list.append(dist)
+        
+        pass
+
+    def load_model(self,model_loc=None):
+        '''
+        Load model in advance of future tasks
+        '''
+        if self.model_loaded == False:
+            
+            if self.dataset == None:
+                self.load_dataset()
+            
+            self.PGNN = PartGNN(self.dataset,self.args)
+            self.PGNN.load_model()
+            
+            if model_loc != None:
+                self.PGNN.load_model(model_loc=model_loc)
+        else:
+            pass
+        
 
 
-
-def load_from_step(step_file):
-    print("loading:",step_file)
-    
-    if isinstance(step_file, str):
-        tmp_file = os.path.join('./tmp/',os.path.basename(step_file))
-        print("step_file",step_file)
-        print("tmp_file",tmp_file)
-        tmpPickle = os.path.join("./tmp/raw/",os.path.basename(step_file)+".gz")
-        shutil.copyfile(step_file, tmp_file)
-        filename = os.path.basename(step_file)
-    else:
-        bytesData = step_file.getvalue()
-        tmp_file = os.path.join('./tmp/',step_file.name)
-        f = open(tmp_file,'wb')
-        f.write(bytesData)
-        f.close()
-        tmpPickle = os.path.join("./tmp/raw/",step_file.name+".pickle")
-        filename = step_file.name
-    
-    tmpdataset = {}
-    s2g = StepToGraph(tmp_file)
-    s2g.compute_faces_surface()
-    
-    tmpdataset[filename+"a"] = {"cat":0, "graph_nx":s2g.G}
-    
-    
-    if not os.path.exists("./tmp/raw/"):
-        os.makedirs("./tmp/raw/")
-    if not os.path.exists("./tmp/processed/"):
-        os.makedirs("./tmp/processed/")
-    print("writing pickle")
-    with open(tmpPickle,'wb') as handle:
-        pickle.dump(tmpdataset,handle, protocol=pickle.HIGHEST_PROTOCOL)
-    print("processing!")
-    tmpdataset = CADDataset(".\\tmp\\", filename + ".pickle",
-                     force_reprocess=False, add_cats=False)
-    print("tmpdataset complete")
-    
-    
-    
-    return tmpdataset, filename
-    
-
-
-seed = 0
-torch.manual_seed(seed)
-if torch.cuda.is_available():
-    device = torch.device("cuda")
+if __name__ == "__main__":
+   print("Testing PartFind")
+   pf = PartFind()
+   model_list = ["test_parts/0000028089.STEP","test_parts/0000028089b.STEP","test_parts/0000028103.STEP","test_parts/0000031612.STEP"]
+   va = pf.compare_pairs(model_list)
+   print(va)
 else:
-    device = torch.device("cpu") 
-
-
-def load_model(convtype="GraphConv"):
-    dataset = CADDataset(".\\Dataset\\", "cakebox_nx.pickle",
-                     force_reprocess=False,add_cats=False)
-    print("ConvType:", convtype)
-    model = GCNTriplet(hidden_channels=32,
-                   dataset=dataset,
-                   nb_layers=3,
-                   convtype=convtype).to(device)
-    model_path = '.\\saved_models\\partfind_v2_3layers_32_' + convtype + '_40.pt'
-
-    
-    
-    model.load_state_dict(torch.load(model_path, map_location=device), strict=False)
-    model.eval()
-    
-    
-    # if not os.path.exists("demo.pkl"):
-    batch_size = 16
-    cakebox_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-        # array = np.empty((0, 16), int)
-        # with torch.no_grad():
-            # for i, (data, _, _) in enumerate(cakebox_loader):
-                # print("i",i)
-                # data = data.to(device)
-
-                # if convtype in ['GCNConv', 'GraphConv']:  # node features only
-                    # kwargs = {"x0": data.x, "edge_index0": data.edge_index, "batch0": data.batch,
-                              # "x1": data.x, "edge_index1": data.edge_index, "batch1": data.batch,
-                              # "x2": data.x, "edge_index2": data.edge_index, "batch2": data.batch}
-                # elif convtype in ['NNConv']:  # node and edge features
-                    # kwargs = {"x0": data.x, "edge_index0": data.edge_index, "batch0": data.batch, "edge_attr0": data.edge_attr,
-                              # "x1": data.x, "edge_index1": data.edge_index, "batch1": data.batch, "edge_attr1": data.edge_attr,
-                              # "x2": data.x, "edge_index2": data.edge_index, "batch2": data.batch, "edge_attr2": data.edge_attr}
-
-                # Perform a single forward pass for each model.
-                # out0, out1, out2, correct, score_p, score_n, correct_s = model(**kwargs)
-                # array = np.append(array, np.array(out0), axis=0)
-        # print(array.shape)
-        
-        # rowNames = []
-        # with open(".\\dataset\\triple_list.csv", 'r') as f:
-            # reader = csv.reader(f, delimiter='\n')
-            # for row in reader:
-                # if row:
-                    # rowNames.append(row[0])
-        
-        # header_row = ['file']
-        # for i in range(0, array.shape[1]):
-            # s = "v" + str(i)
-            # header_row.append(s)
-        
-        # df = pd.DataFrame(array, columns=header_row[1:])
-        # df['name'] = rowNames
-        
-        # types = []
-        # with open("partTypes.tsv", 'r') as f:
-            # reader = csv.reader(f, delimiter='\t')
-            # for i, row in enumerate(reader):
-                # types.append(row)
-
-        # l = len(rowNames)
-        # processes = np.zeros(83)
-        # df['process'] = processes
-
-
-        # for row in types:
-            # try:
-                # idx = rowNames.index(row[0])
-                # df.process[idx] = row[1]
-            # except:
-                # print("not in list:", row[0])
-            
-        # with open("demo.pkl", 'wb') as f:
-            # pickle.dump(df, f)
-    # else:
-        # df = pd.read_pickle("./demo.pkl")
-    
-    return model, cakebox_loader
-
-convtype="GraphConv"
-model, cakebox_loader = load_model(convtype=convtype)
-print("model loaded")
-
-
-#To do generate vectors in model
-# def generate_cakebox(model):
-    
-
-
-
-step_folder = ".\cakebox_parts"
-image_folder = step_folder
-save_folder = ".\save_data"
-
-
-st.title('Part finder')
-st.write("Upload part to find similar:")
-uploaded_file = st.file_uploader("Choose a file")
-                     
-if uploaded_file is not None:
-  csv_loc = os.path.join(save_folder,uploaded_file.name) +".csv"
-
-  load_csv=False
-  try:
-    prev_scores = pd.read_csv(csv_loc).set_index('file')
-    scores_dict = prev_scores.to_dict('index')
-    # print("scores_dict:",scores_dict)
-    load_csv=True
-    print("loading from saved results")
-  except:
-    pass
-
-  st.spinner()
-
-  with st.spinner(text="Rendering file..."):
-    image0 = render_step(uploaded_file, remove_tmp = False)
-    st.image(image0,caption="Input model",width=400)
-
-
-
-  st.write("Finding similar models:")
-  with st.spinner(text="Finding results..."):
-
-    tmpdataset, testfile = load_from_step(uploaded_file)
-
-    
-    tmploader_loader = DataLoader(tmpdataset, batch_size=1, shuffle=False)
-    
-    with torch.no_grad():
-        for i, (data, _, _) in enumerate(tmploader_loader):
-            data = data.to(device)
-
-            if convtype in ['GCNConv', 'GraphConv']:  # node features only
-                kwargs = {"x0": data.x, "edge_index0": data.edge_index, "batch0": data.batch,
-                          "x1": data.x, "edge_index1": data.edge_index, "batch1": data.batch,
-                          "x2": data.x, "edge_index2": data.edge_index, "batch2": data.batch}
-            elif convtype in ['NNConv']:  # node and edge features
-                kwargs = {"x0": data.x, "edge_index0": data.edge_index, "batch0": data.batch, "edge_attr0": data.edge_attr,
-                          "x1": data.x, "edge_index1": data.edge_index, "batch1": data.batch, "edge_attr1": data.edge_attr,
-                          "x2": data.x, "edge_index2": data.edge_index, "batch2": data.batch, "edge_attr2": data.edge_attr}
-
-            # Perform a single forward pass for each model.
-            out0, out1, out2, correct, score_p, score_n, correct_s = model(**kwargs)
-            
-        vector = np.array(out0)
-        
-        array = np.empty((0, 16), int)
-        for i, (data, _, _) in enumerate(cakebox_loader):
-            print("i",i)
-            data = data.to(device)
-
-            if convtype in ['GCNConv', 'GraphConv']:  # node features only
-                kwargs = {"x0": data.x, "edge_index0": data.edge_index, "batch0": data.batch,
-                          "x1": data.x, "edge_index1": data.edge_index, "batch1": data.batch,
-                          "x2": data.x, "edge_index2": data.edge_index, "batch2": data.batch}
-            elif convtype in ['NNConv']:  # node and edge features
-                kwargs = {"x0": data.x, "edge_index0": data.edge_index, "batch0": data.batch, "edge_attr0": data.edge_attr,
-                          "x1": data.x, "edge_index1": data.edge_index, "batch1": data.batch, "edge_attr1": data.edge_attr,
-                          "x2": data.x, "edge_index2": data.edge_index, "batch2": data.batch, "edge_attr2": data.edge_attr}
-
-            #Perform a single forward pass for each model.
-            out0, out1, out2, correct, score_p, score_n, correct_s = model(**kwargs)
-            array = np.append(array, np.array(out0), axis=0)
-        
-        
-    # st.write(vector)
-    
-    rowNames = []
-    with open(".\\dataset\\triple_list.csv", 'r') as f:
-        reader = csv.reader(f, delimiter='\n')
-        for row in reader:
-            if row:
-                rowNames.append(row[0])
-    
-    header_row = ['file']
-    for i in range(0, array.shape[1]):
-        s = "v" + str(i)
-        header_row.append(s)
-    
-    df = pd.DataFrame(array, columns=header_row[1:])
-    df['name'] = rowNames
-    
-    types = []
-    with open("partTypes.tsv", 'r') as f:
-        reader = csv.reader(f, delimiter='\t')
-        for i, row in enumerate(reader):
-            types.append(row)
-
-    l = len(rowNames)
-    processes = np.zeros(83)
-    df['process'] = processes
-
-
-    for row in types:
-        try:
-            idx = rowNames.index(row[0])
-            df.process[idx] = row[1]
-        except:
-            print("not in list:", row[0])
-    
-    #df = pd.read_pickle("./cakeboxVectors/cakebox_vectors_32_" + convtype + "_40_wlin.pkl")
-    dud = []
-    for index, row in df.iterrows():
-        if row['process'] == 0.0:
-            print("extra zero!")
-            dud.append(index)
-        if row['process'] == 'other (not applicable)':
-            dud.append(index)
-    df = df.drop(dud)
-    partlist = []
-    distlist = []
-    print(testfile[:-5])
-    for index, row in df.iterrows():
-        
-        dist = np.linalg.norm(vector - row[:16].to_numpy())
-        if row['name'] == testfile[:-5]:
-            print("dist:",dist)
-        else:
-            partlist.append(row['name']) 
-            distlist.append(dist)
-
-    
-    
-    # # Open renderer to avoid new renderer being opened for each part image
-    # renderer = Viewer3d()
-    # renderer.Create()
-    # renderer.SetSize(600,600)
-    # renderer.SetModeShaded()
-
-    file_dict = dict(sorted(zip(distlist, partlist), reverse = False))
-
-
-    c_head = st.columns(3)
-    c_head[0].write('Shape image')
-    c_head[1].write('Shape name')
-    c_head[2].write('Ranking')
-    ranking = 0
-    for k,v in file_dict.items():
-        ranking += 1
-        filename = v
-        score = k
-        
-        # Get/create image
-        im_name = os.path.splitext(filename)[0] + ".jpg"
-        im_name = os.path.join(image_folder, im_name)
-        if os.path.isfile(im_name):
-            # st.write('Found image')
-            im = cv2.imread(im_name)
-            b,g,r = cv2.split(im)
-            im = cv2.merge([r,g,b])
-        else:
-            # st.write('Rendering image')
-            # im = render_step_simple(os.path.join(model_folder, filename), offscreen_renderer = renderer)
-            im = render_step_simple(os.path.join(image_folder, filename))
-
-        # Create columns and add image and sim score
-        c = st.columns(3)
-        c[0].image(im, width = 100)
-        c[1].write(os.path.splitext(filename)[0])
-        c[2].write(ranking)
-
-
-
-    # delete temp files
-    dirpath = Path('./tmp/processed/')
-    if dirpath.exists() and dirpath.is_dir():
-        shutil.rmtree(dirpath)
-    dirpath = Path('./tmp/raw/')
-    if dirpath.exists() and dirpath.is_dir():
-        shutil.rmtree(dirpath)
+   print("PartFind_v2 Imported")

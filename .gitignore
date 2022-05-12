@@ -130,3 +130,10 @@ Dataset/*
 !Dataset/ABCSiameseDataset.py
 tmp/*
 trained_models/*
+Dataset-Cakebox/*
+Dataset-FabWave/*
+ImagesTransparent/*
+Plots/*
+raw/*
+TrainingDiagram/*
+TrainingPlot/*

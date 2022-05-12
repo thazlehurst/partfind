@@ -21,13 +21,15 @@ import csv
 
 
 class CADDataset(Dataset):
-    def __init__(self, root, filename, force_reprocess=False, transform=None, pre_transform=None, add_cats=True):
+    def __init__(self, root, filename, force_reprocess=False, transform=None, pre_transform=None, add_cats=False, triple_file=None):
         """
         root = Where the dataset should be stored. This folder is split into raw_dir (downloaded dataset) and processed_dir (processed dataset).
         """
         self.filename = filename
         self.force_reprocess = force_reprocess
         self.add_cats = add_cats
+        self.triple_file = triple_file
+        self.filenamelist = []
         super(CADDataset, self).__init__(root, transform, pre_transform)
 
     @property
@@ -74,9 +76,10 @@ class CADDataset(Dataset):
 
     def write_triple_list(self, list_of_lists):
         # print(list_of_lists)
-        with open(os.path.join(self.root, "triple_list.csv"), "w") as f:
+        with open(os.path.join(self.root, "triple_list.csv"), "w", newline='') as f:
             wr = csv.writer(f)
             wr.writerows(list_of_lists)
+        self.filenamelist = list_of_lists
 
     def process(self):
         print(self.raw_paths)
@@ -84,6 +87,24 @@ class CADDataset(Dataset):
             dataset = pickle.load(f)
 
         # first create a dict of cats
+
+        if self.triple_file != None:
+            file = self.triple_file
+            triple_list = []
+            import csv
+            with open(file) as csv_file:
+                csv_reader = csv.reader(csv_file, delimiter=',')
+                for row in csv_reader:
+                    if row != []:
+                        triple_list.append([row[0], row[1], row[2]])
+
+            datatrip = {}
+            for row in triple_list:
+                try:
+                    datatrip[row[0]] = dataset[row[0]]
+                except:
+                    print("Missing:",row[0])
+
         if self.add_cats:
             cat_dict = {}
             cat_vec = {}
@@ -96,6 +117,7 @@ class CADDataset(Dataset):
                     cat_dict[cat] = [name]
                     cat_vec[i] = cat
                     i += 1
+
         # face type encoder, 10 types of face
         faceEnc = OneHotEncoder(categories=[range(0, 10)], sparse=False, drop='first')
 
@@ -106,18 +128,52 @@ class CADDataset(Dataset):
         names_list = []
         i = -1
         # need to create groups of three, [root, same different]
-        for name, graphdata in tqdm(dataset.items()):
+
+        if self.triple_file == None:
+            iterator = dataset.items()
+        else:
+            iterator = iter(triple_list)#datatrip.items()
+        #print(len(iterator), len(triple_list))
+        #assert len(iterator) == len(triple_list), "Hmmmm"
+        
+        test = False
+        catstemp = ['Washers', 'Brackets', 'Gears', 'Nuts']
+
+        for item1, item2 in tqdm(iterator):
+            if self.triple_file != None:
+                row = item1
+                name = row[0]
+            
+            else:
+                name = item1
+                graphdata = item2
+        #for row in tqdm(triple_list):
+            #cat = dataset[name]['cat']
+            #if cat not in catstemp:
+            #    continue
             i += 1
+
+            print("name", name)
+
+            if self.triple_file != None:
+                if test == True:
+                    assert name == triple_list[i][0], "Not a match"
+                if name != triple_list[i][0]:
+                    test = True
+                    print("skipped", i)
+                    continue
 
             x = None
             edge_index = None
-
-            g = graphdata['graph_nx']
-            cat = graphdata['cat']
+            g = dataset[name]['graph_nx']
+            cat = dataset[name]['cat']
+            # g = graphdata['graph_nx']
+            # cat = graphdata['cat']
 
             # find two other graphs in dataset
             # same type
             if self.add_cats:
+
                 same_name = random.choice(cat_dict[cat])
                 ran_cat = cat
                 while ran_cat == cat:
@@ -129,15 +185,25 @@ class CADDataset(Dataset):
 
                 g_s = dataset[same_name]['graph_nx']
                 g_d = dataset[diff_name]['graph_nx']
+            elif self.triple_file != None:
+                same_name = row[1]
+                diff_name = row[2]
+                #print("match", same_name)
+                #print("nonmatch", diff_name)
+                g_s = dataset[same_name]['graph_nx']
+                g_d = dataset[diff_name]['graph_nx']
+                name_list = [name, same_name, diff_name]
+                names_list.append(name_list)
             else:
                 name_list = [name]
                 names_list.append(name_list)
 
-            # visualize(g,'red')
-            # visualize(g_s,'green')
-            # visualize(g_d,'blue')
+            if i == -100:
+                visualize(g, 'red')
+                visualize(g_s, 'green')
+                visualize(g_d, 'blue')
             h = from_networkx(g)
-            if self.add_cats:
+            if self.add_cats or self.triple_file != None:
                 h_s = from_networkx(g_s)
                 h_d = from_networkx(g_d)
 
@@ -214,5 +280,6 @@ class CADDataset(Dataset):
 
 if __name__ == "__main__":
     print("Starting dataset processing....")
-    dataset = CADDataset(".\\Dataset", "fabwave_nx.pickle")
+    dataset = CADDataset(".\\Dataset", "ABC_nx.pickle", force_reprocess=True,
+                         triple_file=".\\Dataset\\triple_data.csv")
     print("Dataset processed")
