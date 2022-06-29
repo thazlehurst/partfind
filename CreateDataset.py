@@ -14,6 +14,9 @@ from tqdm import tqdm
 def create_dataset(dataset_folder,output_file, filter_list = None):
     
     import pickle
+    
+    print('  Dataset folder(s):\n', dataset_folder)
+
     if not isinstance(dataset_folder, list):
         pk_path = os.path.join(dataset_folder,output_file)
         
@@ -119,6 +122,14 @@ def create_dataset(dataset_folder,output_file, filter_list = None):
                 s2g = StepToGraph(filepath)
                 s2g.compute_faces_surface()
                 dataset[filename] = {"cat":"None","graph_nx":s2g.G}
+
+                ''' HR 01/06/22 Workaround to avoid FileNotFoundError '''
+                print('pk_path:',pk_path)
+                folder,file = os.path.split(pk_path)
+                if not os.path.isdir(folder):
+                    print('  Making folder', folder)
+                    os.makedirs(folder)
+
                 with open(pk_path,'wb') as handle:
                     pickle.dump(dataset,handle, protocol=pickle.HIGHEST_PROTOCOL)
             pbar.update(1)

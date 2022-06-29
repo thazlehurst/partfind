@@ -46,6 +46,15 @@ class CADDataset(Dataset):
         if self.force_reprocess == True:
             self.force_reprocess = False
             return 'reprocess.pt'
+        
+        ''' HR 01/06/22 Workaround to avoid FileNotFoundError '''
+        print('self.processed_dir:', self.processed_dir)
+        # folder,file = os.path.split(self.processed_dir)
+        folder = self.processed_dir
+        if not os.path.isdir(folder):
+            print('  Making folder', folder)
+            os.makedirs(folder)
+        
         processedfiles = [f for f in os.listdir(self.processed_dir) if os.path.isfile(
             os.path.join(self.processed_dir, f))]
         if 'pre_filter.pt' in processedfiles:
@@ -85,6 +94,15 @@ class CADDataset(Dataset):
 
     def process(self):
         print(self.raw_paths)
+
+        # ''' HR 01/06/22 Workaround to avoid FileNotFoundError '''
+        # print('  self.raw_paths:', self.raw_paths)
+        # folder,file = os.path.split(self.raw_paths[0])
+        # print('  file, folder:', file, folder)
+        # if not os.path.isdir(folder):
+        #     print('  Making folder', folder)
+        #     os.makedirs(folder)
+
         with open(self.raw_paths[0], 'rb') as f:
             dataset = pickle.load(f)
 

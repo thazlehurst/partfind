@@ -106,7 +106,7 @@ class PartFind():
         
         
         #print("Models for vectors loaded")
-        
+        # print("model_dataset:", model_dataset)
         
         self.load_model(model_loc=self.args.model_loc)
         
