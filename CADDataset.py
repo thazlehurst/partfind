@@ -24,6 +24,7 @@ class CADDataset(Dataset):
     def __init__(self, root, filename, force_reprocess=False, transform=None, pre_transform=None, add_cats=False, triple_file=None):
         """
         root = Where the dataset should be stored. This folder is split into raw_dir (downloaded dataset) and processed_dir (processed dataset).
+        Triple file needs to be csv, with three models per row, [base, match, not match]
         """
         self.filename = filename
         self.force_reprocess = force_reprocess
@@ -43,6 +44,7 @@ class CADDataset(Dataset):
     def processed_file_names(self):
         """ If these files are found in raw_dir, processing is skipped"""
         if self.force_reprocess == True:
+            self.force_reprocess = False
             return 'reprocess.pt'
         processedfiles = [f for f in os.listdir(self.processed_dir) if os.path.isfile(
             os.path.join(self.processed_dir, f))]
@@ -139,12 +141,13 @@ class CADDataset(Dataset):
         test = False
         catstemp = ['Washers', 'Brackets', 'Gears', 'Nuts']
 
-        for item1, item2 in tqdm(iterator):
+        for item1, item2 in tqdm(iterator): # 
             if self.triple_file != None:
                 row = item1
                 name = row[0]
             
             else:
+                #print(item1)
                 name = item1
                 graphdata = item2
         #for row in tqdm(triple_list):
@@ -265,7 +268,12 @@ class CADDataset(Dataset):
         self.write_triple_list(names_list)
 
     def len(self):
-        return int(len(self.processed_file_names)/3)
+        ll = len(self.processed_file_names)
+        # if ll < 20:
+            # print("self.processed_file_names",self.processed_file_names)
+        # print("len(self.processed_file_names)",ll)
+        # print("len(self.processed_file_names)/3",ll/3)
+        return int(ll/3)
 
     def get(self, idx):
         abc = ['a', 'b', 'c']
