@@ -8,6 +8,7 @@ from args import parameter_parser
 from partgnn import PartGNN
 from CreateDataset import create_dataset
 import numpy as np
+import os
 
 class PartFind():
     def __init__(self):
@@ -29,7 +30,7 @@ class PartFind():
     def load_dataset(self):
         self.dataset = CADDataset(".\\Dataset\\Dataset-Cakebox", "cakebox_nx.pickle", force_reprocess=False)
         
-    def create_dataset(self,root='.\\Dataset\\Dataset-Cakebox',file_name= "fabwave_nx.pickle",triple_file=None,add_cats=False):
+    def create_dataset(self,root='.\\Dataset\\Dataset-Mturk',file_name= "abc_abc_dataset.pkl",triple_file=None,add_cats=False):
         '''
         This generates a dataset from .pickled set of nx graphs
         root: The folder your pickle is in and where you want your dataset stored.
@@ -40,7 +41,7 @@ class PartFind():
         '''
         if (triple_file == None) and (add_cats == False):
             print("At least one of 'triple_file' or 'add_cats' must be used") 
-            triple_file = ".\\Dataset\\Dataset-Cakebox\\triple_list.csv"
+            triple_file = ".\\Dataset\\Dataset-Mturk\\triple_list.csv"
         
         if triple_file != None:
             self.dataset = CADDataset(root, file_name, force_reprocess=True, triple_file=triple_file)
@@ -93,13 +94,16 @@ class PartFind():
         
         
         # uses step to graph2graph to convert a step into a gz file.
-        tmp_file = "tmp/raw/temp1.gz"
+        tmp_file = "tmp/raw/temp2.gz"
+        if not os.path.exists("tmp/raw/"):
+            os.makedirs("tmp/raw/")
         create_dataset(model_list,tmp_file)
         
         #edit create_dataset, so "dataset folder" can be a model list 
-        model_dataset = CADDataset("tmp",filename="temp1.gz", force_reprocess=True)
+        
+        model_dataset = CADDataset("tmp",filename="temp2.gz", force_reprocess=True)
         # load model dataset
-        #print(model_dataset.filenamelist)
+        
         
         #print("Models for vectors loaded")
         
@@ -110,7 +114,9 @@ class PartFind():
         vector_array = self.PGNN.get_vectors(model_dataset)
         
         model_dict = {}
+        
         for i, name in enumerate(model_dataset.filenamelist):
+            print(i, name)
             model_dict[name[0]] = vector_array[i]
         return model_dict
         
@@ -137,6 +143,17 @@ class PartFind():
             dist_list.append(dist)
         
         pass
+        
+        
+    def predict_cat(self):
+        pass
+        
+        
+    
+    def cat_model_init(self):
+        
+        pass
+        
 
     def load_model(self,model_loc=None):
         '''
@@ -160,8 +177,8 @@ class PartFind():
 if __name__ == "__main__":
    print("Testing PartFind")
    pf = PartFind()
-   model_list = ["test_parts/0000028089.STEP","test_parts/0000028089b.STEP","test_parts/0000028103.STEP","test_parts/0000031612.STEP"]
-   va = pf.compare_pairs(model_list)
-   print(va)
+   modellist = [".\\test_parts\\0000028089b.STEP", ".\\test_parts\\0000031612.STEP", ".\\test_parts\\0000028089b.STEP",]
+   vectors = pf.get_vectors(modellist)
+   print(vectors)
 else:
    print("PartFind_v2 Imported")

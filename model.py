@@ -97,6 +97,7 @@ class GCNTriplet(torch.nn.Module):
 
             if i == self.nb_layers - 1:
                 # 2. Readout layer
+                
                 x = global_mean_pool(x, batch)  # [batch_size, hidden_channels]
 
                 # 3.

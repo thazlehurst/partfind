@@ -15,7 +15,7 @@ from pylab import zeros, arange, subplots, plt, savefig
 from model import GCNTriplet
 from CADDataset import CADDataset
 from torch.nn import TripletMarginLoss, BCELoss
-from torch_geometric.data import DataLoader
+from torch_geometric.loader import DataLoader
 
 
 class PartGNN():
@@ -373,18 +373,20 @@ class PartGNN():
     def get_vectors(self,models_dataset):
         self.training = False
         torch.manual_seed(42)
-        print("Getting vectors...")
         
         self.model.eval()
         
         array = np.empty((0,16), int)
+        models_loader = DataLoader(models_dataset, batch_size=1, shuffle=False)
+        
         with torch.no_grad():
             # Iterate in batches over the training dataset.
-            for i, (data0, _, _) in enumerate(models_dataset):
+            #for i, (data0, _, _) in enumerate(models_loader):
+            for i, data in enumerate(models_loader):
+                data0 = data[0].to(self.device)
+                data1 = data[0].to(self.device)
+                data2 = data[0].to(self.device)
 
-                data0 = data0.to(self.device)
-                data1 = data0.to(self.device)
-                data2 = data0.to(self.device)
 
                 # data0 is anchor model, data1 is positive model, data2 is negative model
                 if self.convtype in ['GCNConv', 'GraphConv']:  # node features only

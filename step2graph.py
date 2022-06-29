@@ -296,6 +296,7 @@ class StepToGraph:
         # colour of nodes for type of node
         # get unique groups
         groups = set(nx.get_node_attributes(self.G,'surfType').values())
+        print("Groups",groups)
         mapping = dict(zip(sorted(groups),count()))
         nodes = self.G.nodes()
         colors = [mapping[self.G.nodes[n]['surfType']] for n in nodes]
@@ -323,10 +324,10 @@ class StepToGraph:
         plt.figure(figsize=(scale,scale))
         nc = nx.draw_networkx_nodes(self.G,pos,
                                     nodelist=d.keys(),
-                                    node_size=[v * scale for v in d.values()],
+                                    node_size=100,#[v * scale for v in d.values()],
                                     node_color=colors,
-                                    cmap=plt.cm.rainbow,
-                                    with_labels=True)
+                                    cmap=plt.cm.rainbow,)
+                                    #with_labels=True)
         
         ec = nx.draw_networkx_edges(self.G,pos,
                                     edgelist=l.keys(),
@@ -461,13 +462,14 @@ class StepToGraph:
 if __name__ == "__main__":
     #test_file = 'C:\\Users\\prctha\\PythonDev\\ABC_Data\\00000006_d4fe04f0f5f84b52bd4f10e4_step_001.step'
     #test_file = 'C:\\Users\\prctha\\PythonDev\\ABC_Data\\00000064_767e4372b5f94a88a7a17d90_step_005.step'
-    test_file = 'C:\\Users\\prctha\\PythonDev\\ABC_Data\\00000374_23c957e8e7b2428282a13ae2_step_007.step'
+    #test_file = 'C:\\Users\\prctha\\PythonDev\\ABC_Data\\00000374_23c957e8e7b2428282a13ae2_step_007.step'
+    test_file = "C:\\Users\\prctha\\PythonDev\\Datasets\\cakebox_parts\\0000024773.step"
     
     A = StepToGraph(test_file)
     #A.set_graph()
     #shape_faces_surface()
     A.compute_faces_surface()
-    #A.plot_graph()
-    A.display_shape()
+    A.plot_graph()
+    #A.display_shape()
     #A.export_graph(filename)
     # to do, make it a networkx/dgl graph
