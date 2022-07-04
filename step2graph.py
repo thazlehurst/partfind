@@ -132,6 +132,7 @@ class StepToGraph:
                 # for each each find the two faces (or face) that connect them
                 face_n = 0
                 num_faces_connected = len(list(t.faces_from_edge(edge)))
+
                 assert num_faces_connected < 3, "Edge connected to more than two faces"
                 assert num_faces_connected > 0, "Edge connected to no faces"
                 
@@ -157,94 +158,103 @@ class StepToGraph:
                 
                 # Get vector along edge for face F (current face)
                 
-                CurveHandle, f, l = BRep_Tool().Curve(edge)
-                midParam = (f + l)*0.5
-                paramStep = (l - f)*0.1
-                A_param = midParam - paramStep
-                B_param = midParam + paramStep
+                try: # sometimes num_faces_connected = 1, and this causes BRep_Tool to not work correctly
+                    CurveHandle, f, l = BRep_Tool().Curve(edge)
                 
+                    midParam = (f + l)*0.5
+                    paramStep = (l - f)*0.1
+                    A_param = midParam - paramStep
+                    B_param = midParam + paramStep
+                    
+                    
+                    A = CurveHandle.Value(A_param)
+                    B = CurveHandle.Value(B_param)
                 
-                A = CurveHandle.Value(A_param)
-                B = CurveHandle.Value(B_param)
-            
-                # Calculate vector F
-                # V_x
-                Vx = gp_Vec(B,A)
+                    # Calculate vector F
+                    # V_x
+                    Vx = gp_Vec(B,A)
+                    
+                    assert Vx.Magnitude() > sys.float_info.epsilon, "Error, angle undefined"
+                    # if pointing wrong way, reverse
+                    if edge.Orientation() == TopAbs_FORWARD:#TopAbs_REVERSED:
+                        Vx.Reverse()
+                    
+                    S1 = BRep_Tool().Surface(face)
+                    SAS = ShapeAnalysis_Surface(S1)
+                    UV = SAS.ValueOfUV(A,1.0e-1)
+                    
+                    P = gp_Pnt()
+                    D1U = gp_Vec()
+                    D1V = gp_Vec()
+                    S1.D1(UV.X(),UV.Y(),P,D1U,D1V)
+                    
+                    N = D1U.Crossed(D1V)  #normal vector
+                    
+                    # make sure normal is pointing out
+                    if face.Orientation() == TopAbs_REVERSED:
+                        N.Reverse()
+                    
+                    FP = P
+                    FN = N
+                    
+                    #V_y
+                    Vy = N.Crossed(Vx)
+                    assert Vy.Magnitude() > sys.float_info.epsilon, "Error, angle undefined"
+                    
+                    TF = Vy.Normalized() ### tangent for F
+                    Ref = Vx.Normalized() ##F Vx
+                    
+                    ## do same for G
+                    # Calculate vector for G
+                    # V_x
+                    Vx = gp_Vec(B,A)
+                    assert Vx.Magnitude() > sys.float_info.epsilon, "Error, angle undefined"
+                    if edge.Orientation() ==  TopAbs_REVERSED:# TopAbs_FORWARD: # If forward, while makes more sense, a flat join is 180 degrees, where I want that to be zero 
+                        Vx.Reverse()
+                    
+                    #CumulOriOnF 
+                    #V_z (normal)
+                    SAS = ShapeAnalysis_Surface(S2)
+                    UV = SAS.ValueOfUV(A,1.0e-1)
                 
-                assert Vx.Magnitude() > sys.float_info.epsilon, "Error, angle undefined"
-                # if pointing wrong way, reverse
-                if edge.Orientation() == TopAbs_FORWARD:#TopAbs_REVERSED:
-                    Vx.Reverse()
+                    P = gp_Pnt()
+                    D1S = gp_Vec()
+                    D1T = gp_Vec()
+                    S2.D1(UV.X(),UV.Y(),P,D1S,D1T)
                 
-                S1 = BRep_Tool().Surface(face)
-                SAS = ShapeAnalysis_Surface(S1)
-                UV = SAS.ValueOfUV(A,1.0e-1)
+                    N = D1S.Crossed(D1T)
+                    # make sure normal is pointing out
+                    if face_adj.Orientation() == TopAbs_REVERSED:
+                        N.Reverse()
+                    
+                    GP = P
+                    GN = N
                 
-                P = gp_Pnt()
-                D1U = gp_Vec()
-                D1V = gp_Vec()
-                S1.D1(UV.X(),UV.Y(),P,D1U,D1V)
+                    #V_y
+                    Vy = N.Crossed(Vx)
+                    assert Vy.Magnitude() > sys.float_info.epsilon, "Error, angle undefined"
                 
-                N = D1U.Crossed(D1V)  #normal vector
-                
-                # make sure normal is pointing out
-                if face.Orientation() == TopAbs_REVERSED:
-                    N.Reverse()
-                
-                FP = P
-                FN = N
-                
-                #V_y
-                Vy = N.Crossed(Vx)
-                assert Vy.Magnitude() > sys.float_info.epsilon, "Error, angle undefined"
-                
-                TF = Vy.Normalized() ### tangent for F
-                Ref = Vx.Normalized() ##F Vx
-                
-                ## do same for G
-                # Calculate vector for G
-                # V_x
-                Vx = gp_Vec(B,A)
-                assert Vx.Magnitude() > sys.float_info.epsilon, "Error, angle undefined"
-                if edge.Orientation() ==  TopAbs_REVERSED:# TopAbs_FORWARD: # If forward, while makes more sense, a flat join is 180 degrees, where I want that to be zero 
-                    Vx.Reverse()
-                
-                #CumulOriOnF 
-                #V_z (normal)
-                SAS = ShapeAnalysis_Surface(S2)
-                UV = SAS.ValueOfUV(A,1.0e-1)
-            
-                P = gp_Pnt()
-                D1S = gp_Vec()
-                D1T = gp_Vec()
-                S2.D1(UV.X(),UV.Y(),P,D1S,D1T)
-            
-                N = D1S.Crossed(D1T)
-                # make sure normal is pointing out
-                if face_adj.Orientation() == TopAbs_REVERSED:
-                    N.Reverse()
-                
-                GP = P
-                GN = N
-            
-                #V_y
-                Vy = N.Crossed(Vx)
-                assert Vy.Magnitude() > sys.float_info.epsilon, "Error, angle undefined"
-            
-                TG = Vy.Normalized() ### tangent for G
-                
-                angleRad = TF.AngleWithRef(TG,Ref)
-                if angleRad < 0:
-                    angleRad = -math.pi - angleRad
-                else:
-                    angleRad = math.pi - angleRad
-                degrees = math.degrees(angleRad)
-                
-                
-                
-                
-                self.vects[edge] = {"Ref":Ref,"TF":TF,"FP":FP,"FN":FN,"GP":P,"TG":TG,"GN":GN,"degrees":degrees,"angleRad":angleRad}
-                
+                    TG = Vy.Normalized() ### tangent for G
+                    
+                    angleRad = TF.AngleWithRef(TG,Ref)
+                    if angleRad < 0:
+                        angleRad = -math.pi - angleRad
+                    else:
+                        angleRad = math.pi - angleRad
+                    degrees = math.degrees(angleRad)
+                    
+                    
+                    
+                    
+                    self.vects[edge] = {"Ref":Ref,"TF":TF,"FP":FP,"FN":FN,"GP":P,"TG":TG,"GN":GN,"degrees":degrees,"angleRad":angleRad}
+                except:
+                    print("num_faces_connected",num_faces_connected)
+                    print("skipped edge")
+                    # print("edge??",edge.IsNull())
+                    # print("or",edge.Orientation())
+                    # CurveHandle, f = BRep_Tool().Curve(edge)
+                    # print("CH",CurveHandle)
+                    # print("f",f)
                 curveType = curve.GetType()
                 def getRelSize(face_a,face_b):
                     surfA = self.G.nodes[face_a]['surfArea']

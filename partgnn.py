@@ -368,7 +368,6 @@ class PartGNN():
             model_path = model_loc
         self.model.load_state_dict(torch.load(model_path, map_location=self.device), strict=False)
         self.model.eval()
-        print("Model loaded")
 
     def get_vectors(self,models_dataset):
         self.training = False

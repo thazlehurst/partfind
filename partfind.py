@@ -30,7 +30,7 @@ class PartFind():
     def load_dataset(self):
         self.dataset = CADDataset(".\\Dataset\\Dataset-Cakebox", "cakebox_nx.pickle", force_reprocess=False)
         
-    def create_dataset(self,root='.\\Dataset\\Dataset-Mturk',file_name= "abc_abc_dataset.pkl",triple_file=None,add_cats=False):
+    def create_dataset_pkl(self,root='.\\Dataset\\Dataset-Mturk',file_name= "abc_abc_dataset.pkl",triple_file=None,add_cats=False):
         '''
         This generates a dataset from .pickled set of nx graphs
         root: The folder your pickle is in and where you want your dataset stored.
@@ -39,6 +39,9 @@ class PartFind():
         triple_file: is a cvs file containing predetermined triples of file names, a base model, a similar model and a dissimilar model
         add_cats: if true, then category data is used to find similar or dissimilar models
         '''
+        print("triple_file",triple_file)
+        print("add_cats",add_cats)
+        
         if (triple_file == None) and (add_cats == False):
             print("At least one of 'triple_file' or 'add_cats' must be used") 
             triple_file = ".\\Dataset\\Dataset-Mturk\\triple_list.csv"
@@ -97,6 +100,7 @@ class PartFind():
         tmp_file = "tmp/raw/temp2.gz"
         if not os.path.exists("tmp/raw/"):
             os.makedirs("tmp/raw/")
+        
         create_dataset(model_list,tmp_file)
         
         #edit create_dataset, so "dataset folder" can be a model list 
@@ -128,7 +132,7 @@ class PartFind():
         
         '''
         model_dict = self.get_vectors(model_list)
-        list = [*model_dict]
+        list = [model_dict]
         dist = np.linalg.norm(model_dict[list[0]]-model_dict[list[1]])
         print("distance",dist)
         return dist, model_dict
@@ -177,7 +181,8 @@ class PartFind():
 if __name__ == "__main__":
    print("Testing PartFind")
    pf = PartFind()
-   modellist = [".\\test_parts\\0000028089b.STEP", ".\\test_parts\\0000031612.STEP", ".\\test_parts\\0000028089b.STEP",]
+   modellist = ["./test_parts/TORCH BODY - UPPER.STEP.STEP.STEP.STEP.STEP"]
+#   modellist = ["./test_parts/A.step","./test_parts/M6 HEX NUT_BS EN 24034 - M6 - C.STEP.STEP.STEP.STEP.STEP"]#"./test_parts/0000028089b.STEP"] # "./test_parts/0000026437.STEP"
    vectors = pf.get_vectors(modellist)
    print(vectors)
 else:
