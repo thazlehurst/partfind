@@ -156,7 +156,7 @@ class CADDataset(Dataset):
             #    continue
             i += 1
 
-            print("name", name)
+            #print("name", name)
 
             if self.triple_file != None:
                 if test == True:
