@@ -10,7 +10,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 from itertools import count
-import pydot
+#import pydot
 from networkx.drawing.nx_pydot import graphviz_layout
 import shutil
 

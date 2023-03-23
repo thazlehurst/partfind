@@ -12,7 +12,7 @@ import dgl
 import os
 from Dataset.ABCSiameseDataset import ABCSiameseDataset
 from Dataset.ABCDataset import ABCDataset
-from utils import print_graph, compare_graphlets
+from .utils import print_graph, compare_graphlets
 #from step2image_pyocc import render_step
 
 from Model.model import PartGNN as GNN
@@ -29,7 +29,8 @@ import networkx as nx
 
 class PartGNN(torch.nn.Module):
 
-    def __init__(self, args, save_folder = "./trained_models/"):
+    #def __init__(self, args, save_folder = "./trained_models/"):
+    def __init__(self, args, save_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'trained_models')):
         """
         :param args: Arguments object
         """
@@ -306,6 +307,7 @@ class PartGNN(torch.nn.Module):
         
         #chooses most recent file if none specified # needs implimenting
         def newest(path):
+            print(path)
             files = os.listdir(path)
             paths = [os.path.join(path, basename) for basename in files]
             return max(paths, key=os.path.getctime)
@@ -464,6 +466,7 @@ class PartGNN(torch.nn.Module):
         
         #chooses most recent file if none specified # needs implimenting
         def newest(path):
+            print(path)
             files = os.listdir(path)
             paths = [os.path.join(path, basename) for basename in files]
             return max(paths, key=os.path.getctime)

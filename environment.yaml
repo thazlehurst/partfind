@@ -1,0 +1,47 @@
+## ALL COMMENTED STUFF BELOW COPIED FROM "requirements.txt" WHICH WAS NOT PROPERLY FORMATTED
+## HR 23/03/23 To adapt requirements into environment.yml file for conda env setup
+
+#conda install -c conda-forge pythonocc-core=7.4.1
+
+#pip install opencv-python
+
+#-- choose cuda version if required https://www.dgl.ai/pages/start.html   https://pytorch.org/get-started/locally/
+#pip install dgl
+#pip install torch==1.7.1+cpu torchvision==0.8.2+cpu torchaudio===0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+#conda install grakel
+#pip install tqdm
+#pip install matplotlib
+#pip install graphgiz
+#pip install pydot
+
+#--put this last
+#pip install streamlit
+
+
+#create folder called
+#"trained_models"
+#"tmp"
+#change where anaconda is in .bat
+
+## ALL BELOW NEW, 23/03/23
+## Adapted from StrEmbed
+
+
+name: partfind001
+channels:
+  - conda-forge
+#  - defaults
+dependencies: # Added pip and python at top to avoid conda giving grumpy warnings
+  - pip
+  - python=3.9
+  - grakel
+  - pythonocc-core=7.7.0
+  - matplotlib
+  - scipy
+  - dglteam::dgl
+  - pytorch::cpuonly
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - pytorch::torchaudio
+
+prefix:
