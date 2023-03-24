@@ -39,12 +39,12 @@ def par_parser():
     parser.add_argument("--tensor-neurons",
                         type=int,
                         default=16,
-                        help="Neurons in tensor network layer. Default is 16.") ########
+                        help="Neurons in tensor network layer. Default is 16.")
 
     parser.add_argument("--bottle-neck-neurons",
                         type=int,
                         default=16,
-	                help="Bottle neck layer neurons. Default is 16.")
+	                    help="Bottle neck layer neurons. Default is 16.")
 
     parser.add_argument("--batch-size",
                         type=int,
