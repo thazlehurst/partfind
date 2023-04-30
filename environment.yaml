@@ -44,4 +44,19 @@ dependencies: # Added pip and python at top to avoid conda giving grumpy warning
   - pytorch::torchvision
   - pytorch::torchaudio
 
+# HR 30/04/23 Alternative method to replace conda with pip wherever possible
+# Note torchvision and torchaudio not required
+#  - pip
+#  - python=3.9
+#  - nomkl
+#  - grakel
+#  - pythonocc-core=7.7.0
+#  - pip:
+#    - matplotlib
+#    - scipy
+#    - dgl
+#    - torch
+##    - torchvision
+##    - torchaudio
+
 prefix:

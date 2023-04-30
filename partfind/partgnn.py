@@ -21,11 +21,11 @@ import math
 import numpy as np
 from torch.utils.data.sampler import SubsetRandomSampler
 
-
 import grakel
 from grakel.utils import graph_from_networkx
 from grakel.kernels import GraphletSampling
 import networkx as nx
+
 
 class PartGNN(torch.nn.Module):
 
@@ -39,6 +39,7 @@ class PartGNN(torch.nn.Module):
         self.verbose = self.args.verbose
         self.save_frequency = 1
         self.save_folder = save_folder
+        print("save_folder:", save_folder)
         if self.verbose:
             print("Verbose enabled")
         
